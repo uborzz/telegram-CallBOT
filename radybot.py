@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-
 import telegram
 from telegram.ext import Updater
 import json
@@ -17,10 +16,6 @@ with open('token.txt') as f:
 
 updater = Updater(token=TOKEN)
 dispatcher = updater.dispatcher
-
-import logging
-logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-                    level=logging.INFO)
                     
 def start(bot, update):
     bot.send_message(chat_id=update.message.chat_id, text="CallBot Version Dofitos. /help para aiuda! ")
@@ -33,14 +28,15 @@ def help(bot, update):
                                                           "\n/joinhots y /leavehots ")
     
 def hots(bot, update):
-    print(send_call('hots', 'CALL: HEROES OF THE STORM!', update.message.chat_id))
+    send_call('hots', 'CALL: HEROES OF THE STORM!', str(update.message.chat_id))
     #bot.send_message(chat_id=update.message.chat_id, text="OLD!!! CALL: HEROES OF THE STORM! \n + @gtorres @druscaelan @uborzz \n A partir cabezas!")
 
 def cs(bot, update):
-    print(send_call('csgo', 'CALL: COUNTER STRIKE!',update.message.chat_id))
+    send_call('csgo', 'CALL: COUNTER STRIKE!',str(update.message.chat_id))
 
 
 def add_user(uid, nick, call):
+    new_user = {'uid': uid, 'nick': nick}
     found = False
     if call == 'csgo':
         users = db.csgo.find()
@@ -51,7 +47,6 @@ def add_user(uid, nick, call):
             found = True
             break
     if not found:
-        new_user = {'uid': uid, 'nick': nick}
         if call == 'csgo':
             db.csgo.insert_one(new_user)
             print(new_user, 'added to csgo')
@@ -81,36 +76,35 @@ def joincs(bot, update):
     chatid = update.message.chat_id
     fname = update.message.from_user.first_name
     uid = update.message.from_user.id
-    print('join', chatid, fname)
+    #print('join', chatid, fname)
     add_user(uid, fname, 'csgo')
     
 def leavecs(bot, update):
     chatid = update.message.chat_id
     fname = update.message.from_user.first_name
     uid = update.message.from_user.id
-    print('leave', chatid, fname)
+    #print('leave', chatid, fname)
     rm_user(uid, fname, 'csgo')
     
 def joinhots(bot, update):
     chatid = update.message.chat_id
     fname = update.message.from_user.first_name
     uid = update.message.from_user.id
-    print('join', chatid, fname)
+    #print('join', chatid, fname)
     add_user(uid, fname, 'hots')
     
 def leavehots(bot, update):
     chatid = update.message.chat_id
     fname = update.message.from_user.first_name
     uid = update.message.from_user.id
-    print('leave', chatid, fname)
+    #print('leave', chatid, fname)
     rm_user(uid, fname, 'hots')
 
 def send_call(calls, text, ch):
-    # https://api.pwrtelegram.xyz/bot395189335:AAFwCk2jvCxjzzvLQxYLJzGbq9dUa-Ll1WI/sendmessage?chat_id=-1001080056147&text=<a href="mention:13109044">Desde el averno: Dani</a>&parse_mode=HTML&mtproto=true
     text = text + '\n' + comp_text(calls)
-    vmid = '/sendmessage?chat_id=' + str(ch) + '&text='
-
+    vmid = '/sendmessage?chat_id=' + ch + '&text='
     url = rootpwr + TOKEN + vmid + text + vend
+    #print(url)
     # calls = '<a href="mention:{}">{}</a> '.format(str(uid), fname)
     response = requests.get(url)
     content = response.content.decode("utf8")
@@ -134,14 +128,18 @@ def comp_text(calls):
 from telegram.ext import CommandHandler
 start_handler = CommandHandler('start', start)
 dispatcher.add_handler(start_handler)
+
 start_handler = CommandHandler('help', help)
 dispatcher.add_handler(start_handler)
+
 hots_handler = CommandHandler('hots', hots)
 dispatcher.add_handler(hots_handler)
 hots_handler = CommandHandler('hos', hots)
 dispatcher.add_handler(hots_handler)
+
 hots_handler = CommandHandler('cs', cs)
 dispatcher.add_handler(hots_handler)
+
 hots_handler = CommandHandler('joincs', joincs)
 dispatcher.add_handler(hots_handler)
 hots_handler = CommandHandler('joinhots', joinhots)
