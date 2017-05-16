@@ -8,7 +8,7 @@ Se utiliza Mongo para guardar los grupos de usuarios que quieren ser mencionados
 
 ## To-do
 
-Actualmente solo hay 2 "grupos" a los que los usuarios se pueden unir, ya predefinidos. Se pretenden mejorar los siguientes puntos:
+Actualmente solo hay 2 "grupos" a los que los usuarios se pueden unir, ya predefinidos. Se pretende mejorar los siguientes puntos:
 * Permitir creación de grupos con mensajes y tags customizados por parte de los usuarios de un canal.
 * Eliminar datos referentes a un canal al expulsar al bot de dicho canal.
 * Añadir mensajes con temporización.
