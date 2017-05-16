@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-import telegram
+
 from telegram.ext import Updater
 import json
 import requests
@@ -28,103 +28,84 @@ def help(bot, update):
                                                           "\n/joinhots y /leavehots ")
     
 def hots(bot, update):
-    send_call('hots', 'CALL: HEROES OF THE STORM!', str(update.message.chat_id))
+    print('hots llamado')
+    ret = send_call('hots', 'CALL: HEROES OF THE STORM!', str(update.message.chat_id))
+    print('hots explicando')
+    print(ret)
     #bot.send_message(chat_id=update.message.chat_id, text="OLD!!! CALL: HEROES OF THE STORM! \n + @gtorres @druscaelan @uborzz \n A partir cabezas!")
 
 def cs(bot, update):
+    print('cs llamado')
     send_call('csgo', 'CALL: COUNTER STRIKE!',str(update.message.chat_id))
+    print('cs explicando')
 
-
-def add_user(uid, nick, call):
+def add_user(uid, nick, collection):
     new_user = {'uid': uid, 'nick': nick}
     found = False
-    if call == 'csgo':
-        users = db.csgo.find()
-    elif call == 'hots':
-        users = db.hots.find()
+    users = db[collection].find()
     for user in users:
         if user['uid'] == uid:
             found = True
             break
     if not found:
-        if call == 'csgo':
-            db.csgo.insert_one(new_user)
-            print(new_user, 'added to csgo')
-        elif call == 'hots':
-            db.hots.insert_one(new_user)
-            print(new_user, 'added to hots')
+        db[collection].insert_one(new_user)
+        print(new_user, 'added to ' + colletion[:4])
     else:
-        print(new_user, 'already inside')
+        print(new_user, 'already in the database')
 
-def rm_user(uid, nick, call):
+def rm_user(uid, collection):
     found = False
-    if call == 'csgo':
-        users = db.csgo.find()
-    elif call == 'hots':
-        users = db.hots.find()
+    users = db[collection].find()
     for user in users:
         if user['uid'] == uid:
             found = True
             break
     if found:
-        if call == 'csgo':
-            db.csgo.delete_many({'uid':uid})
-        elif call == 'hots':
-            db.hots.delete_many({'uid':uid})
+        db[collection].delete_many({'uid':uid})
 
 def joincs(bot, update):
-    chatid = update.message.chat_id
+    collection = 'csgo' + str(update.message.chat_id)
     fname = update.message.from_user.first_name
     uid = update.message.from_user.id
-    #print('join', chatid, fname)
-    add_user(uid, fname, 'csgo')
-    
-def leavecs(bot, update):
-    chatid = update.message.chat_id
-    fname = update.message.from_user.first_name
-    uid = update.message.from_user.id
-    #print('leave', chatid, fname)
-    rm_user(uid, fname, 'csgo')
-    
-def joinhots(bot, update):
-    chatid = update.message.chat_id
-    fname = update.message.from_user.first_name
-    uid = update.message.from_user.id
-    #print('join', chatid, fname)
-    add_user(uid, fname, 'hots')
-    
-def leavehots(bot, update):
-    chatid = update.message.chat_id
-    fname = update.message.from_user.first_name
-    uid = update.message.from_user.id
-    #print('leave', chatid, fname)
-    rm_user(uid, fname, 'hots')
+    add_user(uid, fname, collection)
 
-def send_call(calls, text, ch):
-    text = text + '\n' + comp_text(calls)
-    vmid = '/sendmessage?chat_id=' + ch + '&text='
+def leavecs(bot, update):
+    collection = 'csgo' + str(update.message.chat_id)
+    fname = update.message.from_user.first_name
+    uid = update.message.from_user.id
+    rm_user(uid, collection)
+
+def joinhots(bot, update):
+    collection = 'hots' + str(update.message.chat_id)
+    fname = update.message.from_user.first_name
+    uid = update.message.from_user.id
+    add_user(uid, fname, collection)
+
+def leavehots(bot, update):
+    collection = 'hots' + str(update.message.chat_id)
+    fname = update.message.from_user.first_name
+    uid = update.message.from_user.id
+    rm_user(uid, collection)
+
+def send_call(calls, text, chatid_str):
+    text = text + '\n' + comp_text(calls+chatid_str)
+    vmid = '/sendmessage?chat_id=' + chatid_str + '&text='
     url = rootpwr + TOKEN + vmid + text + vend
-    #print(url)
+    print(url)
     # calls = '<a href="mention:{}">{}</a> '.format(str(uid), fname)
     response = requests.get(url)
     content = response.content.decode("utf8")
     return content
     # print()
 
-def comp_text(calls):
+def comp_text(collection):
     result = ''
-    if calls == 'csgo':
-        users = db.csgo.find()
-        for user in users:
-            user['uid']
-            result += '<a href="mention:{}">{}</a> '.format(user['uid'], user['nick'])
-    elif calls == 'hots':
-        users = db.hots.find()
-        for user in users:
-            user['uid']
-            result += '<a href="mention:{}">{}</a> '.format(user['uid'], user['nick'])
+    users = db[collection].find()
+    for user in users:
+        user['uid']
+        result += '<a href="mention:{}">{}</a> '.format(user['uid'], user['nick'])
     return result
-       
+
 from telegram.ext import CommandHandler
 start_handler = CommandHandler('start', start)
 dispatcher.add_handler(start_handler)
