@@ -4,6 +4,7 @@ from telegram.ext import Updater
 import json
 import requests
 import pymongo
+import random
 
 client = pymongo.MongoClient('localhost', 27017)
 db = client.callsdb
@@ -25,7 +26,16 @@ def help(bot, update):
                                                           "\n/cs : Call CS."
                                                           "\n/hots ó /hos : Call HotS."
                                                           "\n/joincs y /leavecs "
-                                                          "\n/joinhots y /leavehots ")
+                                                          "\n/joinhots y /leavehots "
+                                                          "\n/flip : Coin flip")
+    
+def flip(bot, update):
+    if random.randint(0,2):
+        result = "Headz!"
+    else:
+        result = "Tailz!"
+    return_text = "Coin flip: " + result
+    bot.send_message(chat_id=update.message.chat_id, text=return_text)
     
 def hots(bot, update):
     print('hots llamado')
@@ -111,6 +121,9 @@ start_handler = CommandHandler('start', start)
 dispatcher.add_handler(start_handler)
 
 start_handler = CommandHandler('help', help)
+dispatcher.add_handler(start_handler)
+
+start_handler = CommandHandler('help', flip)
 dispatcher.add_handler(start_handler)
 
 hots_handler = CommandHandler('hots', hots)
