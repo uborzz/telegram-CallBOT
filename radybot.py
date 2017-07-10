@@ -35,6 +35,7 @@ def flip(bot, update):
     else:
         result = "Tailz!"
     return_text = "Coin flip: " + result
+    print(return_text)
     bot.send_message(chat_id=update.message.chat_id, text=return_text)
     
 def hots(bot, update):
@@ -123,7 +124,7 @@ dispatcher.add_handler(start_handler)
 start_handler = CommandHandler('help', help)
 dispatcher.add_handler(start_handler)
 
-start_handler = CommandHandler('help', flip)
+start_handler = CommandHandler('flip', flip)
 dispatcher.add_handler(start_handler)
 
 hots_handler = CommandHandler('hots', hots)
