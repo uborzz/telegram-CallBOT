@@ -17,10 +17,12 @@ with open('token.txt') as f:
 
 updater = Updater(token=TOKEN)
 dispatcher = updater.dispatcher
-                    
+
+
 def start(bot, update):
     bot.send_message(chat_id=update.message.chat_id, text="CallBot Version Dofitos. /help para aiuda! ")
-    
+
+
 def help(bot, update):
     print(update.message)
     bot.send_message(chat_id=update.message.chat_id, text="CallBOT lista de comandos:"
@@ -57,6 +59,7 @@ def roll(bot, update):
     except:
         helproll(bot, update)
 
+
 def helproll(bot, update):
     bot.send_message(chat_id=update.message.chat_id, text="Roll: utiliza numeros enteros: "
                                                    "\n/roll - random entre 0 y 100"
@@ -72,7 +75,8 @@ def flip(bot, update):
     return_text = "Coin flip: " + result
     print(return_text)
     bot.send_message(chat_id=update.message.chat_id, text=return_text)
-    
+
+
 def hots(bot, update):
     print('hots llamado')
     ret = send_call('hots', 'CALL: HEROES OF THE STORM!', str(update.message.chat_id))
@@ -80,10 +84,12 @@ def hots(bot, update):
     print(ret)
     #bot.send_message(chat_id=update.message.chat_id, text="OLD!!! CALL: HEROES OF THE STORM! \n + @gtorres @druscaelan @uborzz \n A partir cabezas!")
 
+
 def cs(bot, update):
     print('cs llamado')
     send_call('csgo', 'CALL: COUNTER STRIKE!',str(update.message.chat_id))
     print('cs explicando')
+
 
 def add_user(uid, nick, collection):
     new_user = {'uid': uid, 'nick': nick}
@@ -99,6 +105,7 @@ def add_user(uid, nick, collection):
     else:
         print(new_user, 'already in the database')
 
+
 def rm_user(uid, collection):
     found = False
     users = db[collection].find()
@@ -109,6 +116,158 @@ def rm_user(uid, collection):
     if found:
         db[collection].delete_many({'uid':uid})
 
+
+def create(bot, update):
+    params = update.message.text.split()
+
+    if len(params) == 1:
+        helpcreate(bot, update)
+
+    elif len(params) == 2:
+        q = db.calls.find_one({'group': update.message.chat_id,
+                               'nombre': params[1]})
+        print(q)
+        if not q:
+            fields = {'group': update.message.chat_id,
+                      'nombre': params[1],
+                      'desc': "CALL: {}!".format(params[1].upper()),
+                      'owner': update.message.from_user.id,
+                      'users': list()}
+            db.calls.insert_one(fields)
+            print("created")
+        else:
+            print("already created")
+
+
+def join(bot, update):
+    params = update.message.text.split()
+
+    if len(params) == 1:
+        helpjoin(bot, update)
+
+    elif len(params) == 2:
+        nombre = params[1]
+        print("join")
+        fname = update.message.from_user.first_name
+        uid = update.message.from_user.id
+        user = {'uid': uid, 'fname': fname}
+        try:
+            print(nombre, update.message.chat_id)
+            q = db.calls.find_one_and_update({'nombre': nombre, 'group': update.message.chat_id},
+                                     {"$addToSet": {'users': user}})
+            print(q)
+        except:
+            print("Nope")
+
+
+
+def leave(bot, update):
+    params = update.message.text.split()
+
+    if len(params) == 1:
+        helpleave(bot, update)
+
+    elif len(params) == 2:
+        nombre = params[1]
+        print("leave")
+        fname = update.message.from_user.first_name
+        uid = update.message.from_user.id
+        user = {'uid': uid, 'fname': fname}
+        try:
+            print(nombre, update.message.chat_id)
+            q = db.calls.find_one_and_update({'nombre': nombre, 'group': update.message.chat_id},
+                                             {"$pull": {'users': user}})
+            print(q)
+        except:
+            print("Nope")
+
+
+def delete(bot, update):
+    params = update.message.text.split()
+    caller = update.message.from_user.id
+    admins = bot.getChatAdministrators(update.message.chat_id)
+    grupo = update.message.chat_id
+
+    if len(params) == 1:
+        helpdelete(bot, update)
+
+    elif len(params) == 2:
+        nombre = params[1]
+        creador = db.calls.find_one({'nombre': nombre, 'group': grupo}, {'owner': 1, '_id': 0})['owner']
+        admins = [ele['user']['id'] for ele in admins]
+        admins.append(creador)
+        print(admins)
+
+        if caller in admins:
+            print("delete", nombre)
+            try:
+                q = db.calls.find_one_and_delete({'nombre': nombre, 'group': grupo})
+                print(q)
+            except:
+                print("Nope")
+        else:
+            helpdelete(bot, update)
+
+
+def call(bot,update):
+    params = update.message.text.split()
+
+    if len(params) == 1:
+        callall(bot, update)
+
+    elif len(params) == 2:
+        nombre = params[1]
+        group = update.message.chat_id
+        text = db.calls.find_one({'group': group,
+                                  'nombre': nombre}, {'desc':1, '_id':0})
+        if text:
+            text = text['desc']
+            print('llamando', nombre, text)
+            ret = cast_call(nombre, text, group)
+            print(ret)
+
+def cast_call(nombre, desc, chatid):
+    text = desc + '\n' + mentions(nombre, chatid)
+    vmid = '/sendmessage?chat_id=' + str(chatid) + '&text='
+    url = rootpwr + TOKEN + vmid + text + vend
+    print(url)
+    response = requests.get(url)
+    content = response.content.decode("utf8")
+    return content
+
+
+def mentions(nombre, chatid):
+    print('mentions...')
+    users = db.calls.find_one({'nombre': nombre, 'group': chatid}, {'users': 1, '_id': 0})
+    users = users['users']
+    print(users)
+    return ''.join(['<a href="mention:{}">{}</a> '.format(user['uid'], user['fname']) for user in users])
+
+
+def list(bot, update):
+    group = update.message.chat_id
+    q = db.calls.find({'group': group},{'nombre':1, 'desc':1, 'owner':1, '_id':0})
+    print(q)
+    info = ['''\n{}: "{}"'''.format(call['nombre'], call['desc']) for call in q]
+
+    text = ''.join(info)
+    bot.send_message(chat_id=group, text="Calls en este grupo:" + text)
+
+def callall(bot, update):
+    print('TO-DO')
+
+def helpcreate(bot, update):
+    bot.send_message(chat_id=update.message.chat_id, text="/create <nombre> <(opcional)descripcion>")
+
+def helpjoin(bot, update):
+    bot.send_message(chat_id=update.message.chat_id, text="Cómo se usa... /join <nombre>")
+
+def helpleave(bot, update):
+    bot.send_message(chat_id=update.message.chat_id, text="Cómo se usa... /leave <nombre>")
+
+def helpdelete(bot, update):
+    bot.send_message(chat_id=update.message.chat_id, text="Cómo se usa... /delete <nombre>"
+                                                          "\nNecesario ser admin o creador del call.")
 #def join(bot, update):
 
 def joincs(bot, update):
@@ -162,6 +321,19 @@ start_handler = CommandHandler('help', help)
 dispatcher.add_handler(start_handler)
 start_handler = CommandHandler('helproll', helproll)
 dispatcher.add_handler(start_handler)
+
+hots_handler = CommandHandler('create', create)
+dispatcher.add_handler(hots_handler)
+hots_handler = CommandHandler('join', join)
+dispatcher.add_handler(hots_handler)
+hots_handler = CommandHandler('leave', leave)
+dispatcher.add_handler(hots_handler)
+hots_handler = CommandHandler('delete', delete)
+dispatcher.add_handler(hots_handler)
+hots_handler = CommandHandler('call', call)
+dispatcher.add_handler(hots_handler)
+hots_handler = CommandHandler('list', list)
+dispatcher.add_handler(hots_handler)
 
 start_handler = CommandHandler('flip', flip)
 dispatcher.add_handler(start_handler)
