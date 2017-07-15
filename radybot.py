@@ -25,15 +25,25 @@ def start(bot, update):
 
 def help(bot, update):
     print(update.message)
-    bot.send_message(chat_id=update.message.chat_id, text="CallBOT lista de comandos:"
+    bot.send_message(chat_id=update.message.chat_id, text="CallBOT lista de comandos: "
+                                                          "\n/call - /create - /delete"
+                                                          "\n/list - /join - /leave"
+                                                          "\n/helproll : help de /roll"
+                                                          "\n/helpold : old commands")
+
+def helpold(bot, update):
+    bot.send_message(chat_id=update.message.chat_id, text="CallBOT old v.Dofitos:"
                                                           "\n/cs : Call CS."
                                                           "\n/hots ó /hos : Call HotS."
                                                           "\n/joincs y /leavecs "
-                                                          "\n/joinhots y /leavehots "
-                                                          "\n/flip : Coin flip"
-                                                          "\n/roll : valores random"
-                                                          "\n/helproll : help de /roll")
+                                                          "\n/joinhots y /leavehots ")
 
+def helproll(bot, update):
+    bot.send_message(chat_id=update.message.chat_id, text="Roll: utiliza numeros enteros: "
+                                                   "\n/roll - random entre 0 y 100"
+                                                   "\n/roll <max> - entre 0 y <max>" 
+                                                   "\n/roll <min> <max> - adivina... "
+                                                   "\n/flip - coin flip")
 
 def roll(bot, update):
     try:
@@ -60,11 +70,7 @@ def roll(bot, update):
         helproll(bot, update)
 
 
-def helproll(bot, update):
-    bot.send_message(chat_id=update.message.chat_id, text="Roll: utiliza numeros enteros: "
-                                                   "\n/roll - random entre 0 y 100"
-                                                   "\n/roll <max> - entre 0 y <max>"
-                                                   "\n/roll <min> <max> - adivina...")
+
 
 
 def flip(bot, update):
@@ -320,6 +326,8 @@ dispatcher.add_handler(start_handler)
 start_handler = CommandHandler('help', help)
 dispatcher.add_handler(start_handler)
 start_handler = CommandHandler('helproll', helproll)
+dispatcher.add_handler(start_handler)
+start_handler = CommandHandler('helproll', helpold)
 dispatcher.add_handler(start_handler)
 
 hots_handler = CommandHandler('create', create)
