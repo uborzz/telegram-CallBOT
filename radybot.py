@@ -27,7 +27,7 @@ def help(bot, update):
     print(update.message)
     bot.send_message(chat_id=update.message.chat_id, text="CallBOT v2.0! Comandos: "
                                                           "\n/call - /create - /delete"
-                                                          "\n/lista - /join - /leave"
+                                                          "\n/list - /join - /leave"
                                                           "\n/helproll : ayuda de /roll"
                                                           "\n/helpold : old commands")
 
@@ -261,8 +261,8 @@ def call(bot,update):
 def helpcall(bot,update):
     bot.send_message(chat_id=update.message.chat_id, text="Cómo se usa... /call <nombre>"
                                                           "\nNecesario usar un call creado."
-                                                          "\n/lista o /calls para ver los calls.")
-                                                          # "\n/megacall para llamada a todos.")
+                                                          "\n/list o /calls para ver los calls."
+                                                          "\n/megacall para llamada a todos.")
 
 def cast_call(nombre, desc, chatid):
     text = desc + '\n' + mentions(nombre, chatid)
@@ -287,9 +287,8 @@ def mentions(nombre, chatid):
 
 def lista(bot, update):
     group = update.message.chat_id
-    q = db.calls.find({'group': group},{'nombre':1, 'desc':1, 'owner':1, '_id':0})
-    print(q)
-    info = ['''\n{}: "{}"'''.format(call['nombre'], call['desc']) for call in q]
+    q = db.calls.find({'group': group}, {'nombre': 1, 'desc': 1, 'owner': 1, '_id': 0})
+    info = ['''\n{}: "{}"'''.format(ele['nombre'], ele['desc']) for ele in q]
 
     text = ''.join(info)
     if text:
@@ -303,8 +302,28 @@ def lista(bot, update):
 
 def megacall(bot, update):
     print('megacall')
-    users = bot.get_chat_member(update.message.chat_id)
+    chat_id = update.message.chat_id
+    vchat = '/getChat?chat_id=' + str(chat_id)
+    url = rootpwr + TOKEN + vchat
+    response = requests.get(url)
+    content = response.content.decode("utf8")
+    print(content)
+    converted = json.loads(content)
+    participants = converted['result']['participants']
+    print(participants)
+    users = [(user['user']['id'], user['user']['first_name']) for user in participants if user['user']['type'] == 'user']
     print(users)
+
+    mentions = ''.join(['<a href="mention:{}">{}</a> '.format(user[0], user[1]) for user in users])
+
+    text = "FUCKING MEGACALL!!!\n" + mentions
+    vmid = '/sendmessage?chat_id=' + str(chat_id) + '&text='
+    url = rootpwr + TOKEN + vmid + text + vend
+    print(url)
+    response = requests.get(url)
+    content = response.content.decode("utf8")
+
+    return content
 
 def helpcreate(bot, update):
     bot.send_message(chat_id=update.message.chat_id, text="/create <nombre> <(opcional)descripcion>")
@@ -318,7 +337,6 @@ def helpleave(bot, update):
 def helpdelete(bot, update):
     bot.send_message(chat_id=update.message.chat_id, text="Cómo se usa... /delete <nombre>"
                                                           "\nNecesario ser admin o creador del call.")
-#def join(bot, update):
 
 def joincs(bot, update):
     collection = 'csgo' + str(update.message.chat_id)
@@ -372,10 +390,10 @@ dispatcher.add_handler(CommandHandler('create', create))
 dispatcher.add_handler(CommandHandler('join', join))
 dispatcher.add_handler(CommandHandler('leave', leave))
 dispatcher.add_handler(CommandHandler('delete', delete))
-# dispatcher.add_handler(CommandHandler('megacall', megacall))
+dispatcher.add_handler(CommandHandler('megacall', megacall))
 dispatcher.add_handler(CommandHandler('call', call))
 dispatcher.add_handler(CommandHandler('modify', modify))
-dispatcher.add_handler(CommandHandler('lista', lista))
+dispatcher.add_handler(CommandHandler('list', lista))
 dispatcher.add_handler(CommandHandler('calls', lista))
 dispatcher.add_handler(CommandHandler('flip', flip))
 dispatcher.add_handler(CommandHandler('roll', roll))
