@@ -20,15 +20,15 @@ dispatcher = updater.dispatcher
 
 
 def start(bot, update):
-    bot.send_message(chat_id=update.message.chat_id, text="CallBot Version Dofitos. /help para aiuda! ")
+    bot.send_message(chat_id=update.message.chat_id, text="CallBOT v2.0! /help para aiuda! ")
 
 
 def help(bot, update):
     print(update.message)
-    bot.send_message(chat_id=update.message.chat_id, text="CallBOT lista de comandos: "
+    bot.send_message(chat_id=update.message.chat_id, text="CallBOT v2.0! Comandos: "
                                                           "\n/call - /create - /delete"
-                                                          "\n/list - /join - /leave"
-                                                          "\n/helproll : help de /roll"
+                                                          "\n/lista - /join - /leave"
+                                                          "\n/helproll : ayuda de /roll"
                                                           "\n/helpold : old commands")
 
 def helpold(bot, update):
@@ -40,10 +40,10 @@ def helpold(bot, update):
 
 def helproll(bot, update):
     bot.send_message(chat_id=update.message.chat_id, text="Roll: utiliza numeros enteros: "
-                                                   "\n/roll - random entre 0 y 100"
-                                                   "\n/roll <max> - entre 0 y <max>" 
-                                                   "\n/roll <min> <max> - adivina... "
-                                                   "\n/flip - coin flip")
+                                                           "\n/roll - random entre 0 y 100"
+                                                           "\n/roll <max> - entre 0 y <max>" 
+                                                           "\n/roll <min> <max> - adivina... "
+                                                           "\n/flip - headz or tailz!")
 
 def roll(bot, update):
     try:
@@ -68,9 +68,6 @@ def roll(bot, update):
         bot.send_message(chat_id=update.message.chat_id, text=ttr)
     except:
         helproll(bot, update)
-
-
-
 
 
 def flip(bot, update):
@@ -129,20 +126,46 @@ def create(bot, update):
     if len(params) == 1:
         helpcreate(bot, update)
 
-    elif len(params) == 2:
+    elif len(params) >= 2:
         q = db.calls.find_one({'group': update.message.chat_id,
                                'nombre': params[1]})
         print(q)
         if not q:
+            if len(params) >= 3:
+                prov = params[2:]
+                print(prov)
+                desc = ' '.join(prov)
+                print(desc)
+            else:
+                desc = "CALL: {}!".format(params[1].upper())
             fields = {'group': update.message.chat_id,
                       'nombre': params[1],
-                      'desc': "CALL: {}!".format(params[1].upper()),
+                      'desc': desc,
                       'owner': update.message.from_user.id,
                       'users': list()}
+            print(fields)
             db.calls.insert_one(fields)
             print("created")
         else:
             print("already created")
+
+
+def modify(bot, update):
+    params = update.message.text.split()
+
+    if len(params) >= 3:
+        prov = params[2:]
+        desc = ' '.join(prov)
+        q = db.calls.find_one_and_update({'nombre': params[1], 'group': update.message.chat_id},
+                                         {'$set': {'desc': desc}})
+        if not q:
+            bot.send_message(chat_id=update.message.chat_id, text="El canal no está creado"
+                                                                  "\n/create <nombre> <(opcional)desc>.")
+        else:
+            print("HOLA")
+    else:
+        bot.send_message(chat_id=update.message.chat_id, text="Especifica texto del call"
+                                                              "\n/modify <nombre> <text>.")
 
 
 def join(bot, update):
@@ -219,9 +242,9 @@ def call(bot,update):
     params = update.message.text.split()
 
     if len(params) == 1:
-        callall(bot, update)
+        helpcall(bot, update)
 
-    elif len(params) == 2:
+    elif len(params) >= 2:
         nombre = params[1]
         group = update.message.chat_id
         text = db.calls.find_one({'group': group,
@@ -231,6 +254,15 @@ def call(bot,update):
             print('llamando', nombre, text)
             ret = cast_call(nombre, text, group)
             print(ret)
+
+        else:
+            helpcall(bot, update)
+
+def helpcall(bot,update):
+    bot.send_message(chat_id=update.message.chat_id, text="Cómo se usa... /call <nombre>"
+                                                          "\nNecesario usar un call creado."
+                                                          "\n/lista o /calls para ver los calls.")
+                                                          # "\n/megacall para llamada a todos.")
 
 def cast_call(nombre, desc, chatid):
     text = desc + '\n' + mentions(nombre, chatid)
@@ -246,21 +278,33 @@ def mentions(nombre, chatid):
     print('mentions...')
     users = db.calls.find_one({'nombre': nombre, 'group': chatid}, {'users': 1, '_id': 0})
     users = users['users']
-    print(users)
-    return ''.join(['<a href="mention:{}">{}</a> '.format(user['uid'], user['fname']) for user in users])
+    if users:
+        result = ''.join(['<a href="mention:{}">{}</a> '.format(user['uid'], user['fname']) for user in users])
+    else:
+        result = 'Grupo vacío... shit!'
 
+    return result
 
-def list(bot, update):
+def lista(bot, update):
     group = update.message.chat_id
     q = db.calls.find({'group': group},{'nombre':1, 'desc':1, 'owner':1, '_id':0})
     print(q)
     info = ['''\n{}: "{}"'''.format(call['nombre'], call['desc']) for call in q]
 
     text = ''.join(info)
-    bot.send_message(chat_id=group, text="Calls en este grupo:" + text)
+    if text:
+        bot.send_message(chat_id=group, text="Calls de este grupo:" + text
+                         + "\n/create para nuevo call"
+                           "\n/modify para editar texto")
+    else:
+        bot.send_message(chat_id=group, text="No hay Calls en este grupo."
+                                             "\n/create para crear nuevo call."
+                                             "\n/help para ver comandos.")
 
-def callall(bot, update):
-    print('TO-DO')
+def megacall(bot, update):
+    print('megacall')
+    users = bot.get_chat_member(update.message.chat_id)
+    print(users)
 
 def helpcreate(bot, update):
     bot.send_message(chat_id=update.message.chat_id, text="/create <nombre> <(opcional)descripcion>")
@@ -320,52 +364,28 @@ def comp_text(collection):
     return result
 
 from telegram.ext import CommandHandler
-start_handler = CommandHandler('start', start)
-dispatcher.add_handler(start_handler)
-
-start_handler = CommandHandler('help', help)
-dispatcher.add_handler(start_handler)
-start_handler = CommandHandler('helproll', helproll)
-dispatcher.add_handler(start_handler)
-start_handler = CommandHandler('helproll', helpold)
-dispatcher.add_handler(start_handler)
-
-hots_handler = CommandHandler('create', create)
-dispatcher.add_handler(hots_handler)
-hots_handler = CommandHandler('join', join)
-dispatcher.add_handler(hots_handler)
-hots_handler = CommandHandler('leave', leave)
-dispatcher.add_handler(hots_handler)
-hots_handler = CommandHandler('delete', delete)
-dispatcher.add_handler(hots_handler)
-hots_handler = CommandHandler('call', call)
-dispatcher.add_handler(hots_handler)
-hots_handler = CommandHandler('list', list)
-dispatcher.add_handler(hots_handler)
-
-start_handler = CommandHandler('flip', flip)
-dispatcher.add_handler(start_handler)
-start_handler = CommandHandler('roll', roll)
-dispatcher.add_handler(start_handler)
-start_handler = CommandHandler('random', roll)
-dispatcher.add_handler(start_handler)
-
-hots_handler = CommandHandler('hots', hots)
-dispatcher.add_handler(hots_handler)
-hots_handler = CommandHandler('hos', hots)
-dispatcher.add_handler(hots_handler)
-
-hots_handler = CommandHandler('cs', cs)
-dispatcher.add_handler(hots_handler)
-
-hots_handler = CommandHandler('joincs', joincs)
-dispatcher.add_handler(hots_handler)
-hots_handler = CommandHandler('joinhots', joinhots)
-dispatcher.add_handler(hots_handler)
-hots_handler = CommandHandler('leavecs', leavecs)
-dispatcher.add_handler(hots_handler)
-hots_handler = CommandHandler('leavehots', leavehots)
-dispatcher.add_handler(hots_handler)
-
+dispatcher.add_handler(CommandHandler('start', start))
+dispatcher.add_handler(CommandHandler('help', help))
+dispatcher.add_handler(CommandHandler('helproll', helproll))
+dispatcher.add_handler(CommandHandler('helpold', helpold))
+dispatcher.add_handler(CommandHandler('create', create))
+dispatcher.add_handler(CommandHandler('join', join))
+dispatcher.add_handler(CommandHandler('leave', leave))
+dispatcher.add_handler(CommandHandler('delete', delete))
+# dispatcher.add_handler(CommandHandler('megacall', megacall))
+dispatcher.add_handler(CommandHandler('call', call))
+dispatcher.add_handler(CommandHandler('modify', modify))
+dispatcher.add_handler(CommandHandler('lista', lista))
+dispatcher.add_handler(CommandHandler('calls', lista))
+dispatcher.add_handler(CommandHandler('flip', flip))
+dispatcher.add_handler(CommandHandler('roll', roll))
+dispatcher.add_handler(CommandHandler('random', roll))
+dispatcher.add_handler(CommandHandler('hots', hots))
+dispatcher.add_handler(CommandHandler('hos', hots))
+dispatcher.add_handler(CommandHandler('cs', cs))
+dispatcher.add_handler(CommandHandler('joincs', joincs))
+dispatcher.add_handler(CommandHandler('joinhots', joinhots))
+dispatcher.add_handler(CommandHandler('leavecs', leavecs))
+dispatcher.add_handler(CommandHandler('leavehots', leavehots))
 updater.start_polling()
 updater.idle()
