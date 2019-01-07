@@ -5,29 +5,39 @@ import json
 import requests
 import pymongo
 import random
+import creds
 
-client = pymongo.MongoClient('localhost', 27017)
-db = client.callsdb
+# client = pymongo.MongoClient(creds.mongo_host, creds.mongo_port)
+# db = client.callsdb
 
-rootpwr = 'https://api.pwrtelegram.xyz/bot'
+rootpwr = 'https://api.telegram.org/bot'
 vend = '&parse_mode=HTML&mtproto=true'
 
-with open('token.txt') as f:
-    TOKEN = f.read()
+# pyrogram
+from pyrogram import Client, Filters
+from pyrogram.api import functions, types
 
-updater = Updater(token=TOKEN)
+app = Client(creds.token,
+    api_id=creds.id,
+    api_hash=creds.hash)
+
+
+updater = Updater(token=creds.token)
 dispatcher = updater.dispatcher
 
 
 def start(bot, update):
-    bot.send_message(chat_id=update.message.chat_id, text="CallBOT v2.0! /help para aiuda! ")
+    bot.send_message(chat_id=update.message.chat_id, text="CallBOT v3.0! /help para aiuda! ")
 
 
 def help(bot, update):
     print(update.message)
-    bot.send_message(chat_id=update.message.chat_id, text="CallBOT v2.0! Comandos: "
+    bot.send_message(chat_id=update.message.chat_id, text="CallBOT v3.0! Comandos: "
+                                                          "\n Disabled atm..."
                                                           "\n/call - /create - /delete"
                                                           "\n/list - /join - /leave"
+                                                          "\n Already ported:"
+                                                          "\n/megacall"    
                                                           "\n/helproll : ayuda de /roll"
                                                           "\n/helpold : old commands")
 
@@ -267,7 +277,7 @@ def helpcall(bot,update):
 def cast_call(nombre, desc, chatid):
     text = desc + '\n' + mentions(nombre, chatid)
     vmid = '/sendmessage?chat_id=' + str(chatid) + '&text='
-    url = rootpwr + TOKEN + vmid + text + vend
+    url = rootpwr + creds.token + vmid + text + vend
     print(url)
     response = requests.get(url)
     content = response.content.decode("utf8")
@@ -300,30 +310,19 @@ def lista(bot, update):
                                              "\n/create para crear nuevo call."
                                              "\n/help para ver comandos.")
 
-def megacall(bot, update):
-    print('megacall')
-    chat_id = update.message.chat_id
-    vchat = '/getChat?chat_id=' + str(chat_id)
-    url = rootpwr + TOKEN + vchat
-    response = requests.get(url)
-    content = response.content.decode("utf8")
-    print(content)
-    converted = json.loads(content)
-    participants = converted['result']['participants']
-    print(participants)
-    users = [(user['user']['id'], user['user']['first_name']) for user in participants if user['user']['type'] == 'user']
+
+@app.on_message(Filters.command(["megacall", "megacall@uborzbot"]))
+def megacall(client, message):
+    print("megacall")
+    chat_id = message.chat.id
+    participants = app.get_chat_members(chat_id, offset=0, limit = 200)
+
+    users = [(user['user']['id'], user['user']['first_name']) for user in participants['chat_members'] if user['user']['is_bot'] == False]
     print(users)
 
-    mentions = ''.join(['<a href="mention:{}">{}</a> '.format(user[0], user[1]) for user in users])
-
+    mentions = ''.join(['<a href="tg://user?id={}">{}</a> '.format(user[0], user[1]) for user in users])
     text = "FUCKING MEGACALL!!!\n" + mentions
-    vmid = '/sendmessage?chat_id=' + str(chat_id) + '&text='
-    url = rootpwr + TOKEN + vmid + text + vend
-    print(url)
-    response = requests.get(url)
-    content = response.content.decode("utf8")
-
-    return content
+    client.send_message(message.chat.id, text, parse_mode="html")
 
 def helpcreate(bot, update):
     bot.send_message(chat_id=update.message.chat_id, text="/create <nombre> <(opcional)descripcion>")
@@ -365,7 +364,7 @@ def leavehots(bot, update):
 def send_call(calls, text, chatid_str):
     text = text + '\n' + comp_text(calls+chatid_str)
     vmid = '/sendmessage?chat_id=' + chatid_str + '&text='
-    url = rootpwr + TOKEN + vmid + text + vend
+    url = rootpwr + creds.token + vmid + text + vend
     print(url)
     # calls = '<a href="mention:{}">{}</a> '.format(str(uid), fname)
     response = requests.get(url)
@@ -390,7 +389,6 @@ dispatcher.add_handler(CommandHandler('create', create))
 dispatcher.add_handler(CommandHandler('join', join))
 dispatcher.add_handler(CommandHandler('leave', leave))
 dispatcher.add_handler(CommandHandler('delete', delete))
-dispatcher.add_handler(CommandHandler('megacall', megacall))
 dispatcher.add_handler(CommandHandler('call', call))
 dispatcher.add_handler(CommandHandler('modify', modify))
 dispatcher.add_handler(CommandHandler('list', lista))
@@ -406,4 +404,5 @@ dispatcher.add_handler(CommandHandler('joinhots', joinhots))
 dispatcher.add_handler(CommandHandler('leavecs', leavecs))
 dispatcher.add_handler(CommandHandler('leavehots', leavehots))
 updater.start_polling()
-updater.idle()
+app.run()
+# updater.idle()
