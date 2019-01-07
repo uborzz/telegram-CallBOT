@@ -6,6 +6,9 @@ El bot permite a los usuarios unirse o salirse de las menciones usando, por ejem
 
 Se utiliza Mongo para guardar los grupos de usuarios que quieren ser mencionados. Las colecciones creadas en la base de datos van referidas al grupo de telegram en el que reside el bot, y su creación es automática cuando se une algún usuario.
 
+## Estado
+Portando de python-telegram-bot a pyrogram. En lugar de ser cliente de una api de telegram, ahora el bot es un propio cliente de telegram, pero todas las funcionalidades no están operativas. Por el momento se han portado solamente la que utilizamos (megacall).
+
 ## To-do
 
 ~~Actualmente solo hay 2 "grupos" a los que los usuarios se pueden unir, ya predefinidos.~~ Se pretende mejorar los siguientes puntos:
