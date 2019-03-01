@@ -5,31 +5,41 @@ import json
 import requests
 import pymongo
 import random
+import creds
 
-client = pymongo.MongoClient('localhost', 27017)
-db = client.callsdb
+# client = pymongo.MongoClient(creds.mongo_host, creds.mongo_port)
+# db = client.callsdb
 
-rootpwr = 'https://api.pwrtelegram.xyz/bot'
+rootpwr = 'https://api.telegram.org/bot'
 vend = '&parse_mode=HTML&mtproto=true'
 
-with open('token.txt') as f:
-    TOKEN = f.read()
+# pyrogram
+from pyrogram import Client, Filters
+from pyrogram.api import functions, types
 
-updater = Updater(token=TOKEN)
+app = Client(creds.token,
+             api_id=creds.id,
+             api_hash=creds.hash)
+
+updater = Updater(token=creds.token)
 dispatcher = updater.dispatcher
 
 
 def start(bot, update):
-    bot.send_message(chat_id=update.message.chat_id, text="CallBOT v2.0! /help para aiuda! ")
+    bot.send_message(chat_id=update.message.chat_id, text="CallBOT v3.0! /help para aiuda! ")
 
 
 def help(bot, update):
     print(update.message)
-    bot.send_message(chat_id=update.message.chat_id, text="CallBOT v2.0! Comandos: "
+    bot.send_message(chat_id=update.message.chat_id, text="CallBOT v3.0! Comandos: "
+                                                          "\n Disabled atm..."
                                                           "\n/call - /create - /delete"
                                                           "\n/list - /join - /leave"
+                                                          "\n Already ported:"
+                                                          "\n/megacall"
                                                           "\n/helproll : ayuda de /roll"
                                                           "\n/helpold : old commands")
+
 
 def helpold(bot, update):
     bot.send_message(chat_id=update.message.chat_id, text="CallBOT old v.Dofitos:"
@@ -38,12 +48,14 @@ def helpold(bot, update):
                                                           "\n/joincs y /leavecs "
                                                           "\n/joinhots y /leavehots ")
 
+
 def helproll(bot, update):
     bot.send_message(chat_id=update.message.chat_id, text="Roll: utiliza numeros enteros: "
-                                                           "\n/roll - random entre 0 y 100"
-                                                           "\n/roll <max> - entre 0 y <max>" 
-                                                           "\n/roll <min> <max> - adivina... "
-                                                           "\n/flip - headz or tailz!")
+                                                          "\n/roll - random entre 0 y 100"
+                                                          "\n/roll <max> - entre 0 y <max>"
+                                                          "\n/roll <min> <max> - adivina... "
+                                                          "\n/flip - headz or tailz!")
+
 
 def roll(bot, update):
     try:
@@ -71,7 +83,7 @@ def roll(bot, update):
 
 
 def flip(bot, update):
-    if random.randint(0,1):
+    if random.randint(0, 1):
         result = "Headz!"
     else:
         result = "Tailz!"
@@ -85,12 +97,12 @@ def hots(bot, update):
     ret = send_call('hots', 'CALL: HEROES OF THE STORM!', str(update.message.chat_id))
     print('hots explicando')
     print(ret)
-    #bot.send_message(chat_id=update.message.chat_id, text="OLD!!! CALL: HEROES OF THE STORM! \n + @gtorres @druscaelan @uborzz \n A partir cabezas!")
+    # bot.send_message(chat_id=update.message.chat_id, text="OLD!!! CALL: HEROES OF THE STORM! \n + @gtorres @druscaelan @uborzz \n A partir cabezas!")
 
 
 def cs(bot, update):
     print('cs llamado')
-    send_call('csgo', 'CALL: COUNTER STRIKE!',str(update.message.chat_id))
+    send_call('csgo', 'CALL: COUNTER STRIKE!', str(update.message.chat_id))
     print('cs explicando')
 
 
@@ -117,7 +129,7 @@ def rm_user(uid, collection):
             found = True
             break
     if found:
-        db[collection].delete_many({'uid':uid})
+        db[collection].delete_many({'uid': uid})
 
 
 def create(bot, update):
@@ -183,11 +195,52 @@ def join(bot, update):
         try:
             print(nombre, update.message.chat_id)
             q = db.calls.find_one_and_update({'nombre': nombre, 'group': update.message.chat_id},
-                                     {"$addToSet": {'users': user}})
-            print(q)
+                                             {"$addToSet": {'users': user}})
+            if not q:
+                helpjoin(bot, update)
+
         except:
             print("Nope")
 
+
+# ToDO: add members to groups (admins, or users?)
+# def add_to_group(bot, update):
+#     # params = update.message.text.split()
+#
+#     # if len(params) <= 2:
+#     #     helpadd(bot, update)
+#     #
+#     # elif len(params) >= 3:
+#     #     nombre = params[1]
+#     #     prov = params[2:]
+#     print("HOLA ADD")
+#     entera=update.message.parse_entities()
+#     print(entera)
+#     ents=update.message.entities
+#     print(ents)
+#     for ent in ents:
+#         print(ent, entera[ent])
+#
+#     print(bot.getChatMember(update.message.chat_id, "@uborzz"))
+#
+#     # print("join")
+#     # fname = update.message.from_user.first_name
+#     # uid = update.message.from_user.id
+#     # user = {'uid': uid, 'fname': fname}
+#     # try:
+#     #     print(nombre, update.message.chat_id)
+#     #     q = db.calls.find_one_and_update({'nombre': nombre, 'group': update.message.chat_id},
+#     #                              {"$addToSet": {'users': user}})
+#     #     print(q)
+#     # except:
+#     #     print("Nope")
+#
+#
+# def helpadd(bot,update):
+#     bot.send_message(chat_id=update.message.chat_id, text="/insert <nombre> <@miembros>"
+#                                                           "\nNecesario usar un call creado."
+#                                                           "\nNecesario mencionar miembros (@)."
+#                                                           "\nLos miembros deben ser parte del grupo.")
 
 
 def leave(bot, update):
@@ -238,7 +291,7 @@ def delete(bot, update):
             helpdelete(bot, update)
 
 
-def call(bot,update):
+def call(bot, update):
     params = update.message.text.split()
 
     if len(params) == 1:
@@ -248,7 +301,7 @@ def call(bot,update):
         nombre = params[1]
         group = update.message.chat_id
         text = db.calls.find_one({'group': group,
-                                  'nombre': nombre}, {'desc':1, '_id':0})
+                                  'nombre': nombre}, {'desc': 1, '_id': 0})
         if text:
             text = text['desc']
             print('llamando', nombre, text)
@@ -258,16 +311,18 @@ def call(bot,update):
         else:
             helpcall(bot, update)
 
-def helpcall(bot,update):
+
+def helpcall(bot, update):
     bot.send_message(chat_id=update.message.chat_id, text="Cómo se usa... /call <nombre>"
                                                           "\nNecesario usar un call creado."
                                                           "\n/list o /calls para ver los calls."
                                                           "\n/megacall para llamada a todos.")
 
+
 def cast_call(nombre, desc, chatid):
     text = desc + '\n' + mentions(nombre, chatid)
     vmid = '/sendmessage?chat_id=' + str(chatid) + '&text='
-    url = rootpwr + TOKEN + vmid + text + vend
+    url = rootpwr + creds.token + vmid + text + vend
     print(url)
     response = requests.get(url)
     content = response.content.decode("utf8")
@@ -285,6 +340,7 @@ def mentions(nombre, chatid):
 
     return result
 
+
 def lista(bot, update):
     group = update.message.chat_id
     q = db.calls.find({'group': group}, {'nombre': 1, 'desc': 1, 'owner': 1, '_id': 0})
@@ -293,50 +349,46 @@ def lista(bot, update):
     text = ''.join(info)
     if text:
         bot.send_message(chat_id=group, text="Calls de este grupo:" + text
-                         + "\n/create para nuevo call"
-                           "\n/modify para editar texto")
+                                             + "\n/create para nuevo call"
+                                               "\n/modify para editar texto")
     else:
         bot.send_message(chat_id=group, text="No hay Calls en este grupo."
                                              "\n/create para crear nuevo call."
                                              "\n/help para ver comandos.")
 
-def megacall(bot, update):
-    print('megacall')
-    chat_id = update.message.chat_id
-    vchat = '/getChat?chat_id=' + str(chat_id)
-    url = rootpwr + TOKEN + vchat
-    response = requests.get(url)
-    content = response.content.decode("utf8")
-    print(content)
-    converted = json.loads(content)
-    participants = converted['result']['participants']
-    print(participants)
-    users = [(user['user']['id'], user['user']['first_name']) for user in participants if user['user']['type'] == 'user']
+
+@app.on_message(Filters.command(["megacall", "megacall@uborzbot"]))
+def megacall(client, message):
+    print("megacall")
+    chat_id = message.chat.id
+    participants = app.get_chat_members(chat_id, offset=0, limit=200)
+
+    users = [(user['user']['id'], user['user']['first_name']) for user in participants['chat_members'] if
+             user['user']['is_bot'] == False]
     print(users)
 
-    mentions = ''.join(['<a href="mention:{}">{}</a> '.format(user[0], user[1]) for user in users])
+    mentions = ''.join(['<a href="tg://user?id={}">{}</a> '.format(user[0], user[1]) for user in users])
 
     text = "FUCKING MEGACALL!!!\n" + mentions
-    vmid = '/sendmessage?chat_id=' + str(chat_id) + '&text='
-    url = rootpwr + TOKEN + vmid + text + vend
-    print(url)
-    response = requests.get(url)
-    content = response.content.decode("utf8")
+    client.send_message(message.chat.id, text, parse_mode="html")
 
-    return content
 
 def helpcreate(bot, update):
     bot.send_message(chat_id=update.message.chat_id, text="/create <nombre> <(opcional)descripcion>")
 
+
 def helpjoin(bot, update):
     bot.send_message(chat_id=update.message.chat_id, text="Cómo se usa... /join <nombre>")
+
 
 def helpleave(bot, update):
     bot.send_message(chat_id=update.message.chat_id, text="Cómo se usa... /leave <nombre>")
 
+
 def helpdelete(bot, update):
     bot.send_message(chat_id=update.message.chat_id, text="Cómo se usa... /delete <nombre>"
                                                           "\nNecesario ser admin o creador del call.")
+
 
 def joincs(bot, update):
     collection = 'csgo' + str(update.message.chat_id)
@@ -344,11 +396,13 @@ def joincs(bot, update):
     uid = update.message.from_user.id
     add_user(uid, fname, collection)
 
+
 def leavecs(bot, update):
     collection = 'csgo' + str(update.message.chat_id)
     fname = update.message.from_user.first_name
     uid = update.message.from_user.id
     rm_user(uid, collection)
+
 
 def joinhots(bot, update):
     collection = 'hots' + str(update.message.chat_id)
@@ -356,22 +410,25 @@ def joinhots(bot, update):
     uid = update.message.from_user.id
     add_user(uid, fname, collection)
 
+
 def leavehots(bot, update):
     collection = 'hots' + str(update.message.chat_id)
     fname = update.message.from_user.first_name
     uid = update.message.from_user.id
     rm_user(uid, collection)
 
+
 def send_call(calls, text, chatid_str):
-    text = text + '\n' + comp_text(calls+chatid_str)
+    text = text + '\n' + comp_text(calls + chatid_str)
     vmid = '/sendmessage?chat_id=' + chatid_str + '&text='
-    url = rootpwr + TOKEN + vmid + text + vend
+    url = rootpwr + creds.token + vmid + text + vend
     print(url)
     # calls = '<a href="mention:{}">{}</a> '.format(str(uid), fname)
     response = requests.get(url)
     content = response.content.decode("utf8")
     return content
     # print()
+
 
 def comp_text(collection):
     result = ''
@@ -381,7 +438,9 @@ def comp_text(collection):
         result += '<a href="mention:{}">{}</a> '.format(user['uid'], user['nick'])
     return result
 
+
 from telegram.ext import CommandHandler
+
 dispatcher.add_handler(CommandHandler('start', start))
 dispatcher.add_handler(CommandHandler('help', help))
 dispatcher.add_handler(CommandHandler('helproll', helproll))
@@ -390,7 +449,7 @@ dispatcher.add_handler(CommandHandler('create', create))
 dispatcher.add_handler(CommandHandler('join', join))
 dispatcher.add_handler(CommandHandler('leave', leave))
 dispatcher.add_handler(CommandHandler('delete', delete))
-dispatcher.add_handler(CommandHandler('megacall', megacall))
+
 dispatcher.add_handler(CommandHandler('call', call))
 dispatcher.add_handler(CommandHandler('modify', modify))
 dispatcher.add_handler(CommandHandler('list', lista))
@@ -406,4 +465,5 @@ dispatcher.add_handler(CommandHandler('joinhots', joinhots))
 dispatcher.add_handler(CommandHandler('leavecs', leavecs))
 dispatcher.add_handler(CommandHandler('leavehots', leavehots))
 updater.start_polling()
-updater.idle()
+app.run()
+# updater.idle()
