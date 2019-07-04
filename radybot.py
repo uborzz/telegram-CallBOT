@@ -45,36 +45,27 @@ doomed = db['doomed']
 q = doomed.find({}, {"uid": 1})
 
 
-def start(bot, update):
-    bot.send_message(chat_id=update.message.chat_id, text="CallBOT v4.0! /help para aiuda! ")
-
-
+#######################################################
+#                GENERAL METHODS
+#######################################################
 def help(bot, update):
     print(update.message)
-    bot.send_message(chat_id=update.message.chat_id, text="CallBOT v4.0! Comandos: "
-                                                          "\n Disabled atm..."
+    bot.send_message(chat_id=update.message.chat_id, text="CallBOT v4.0! Commands: "
                                                           "\n/call - /create - /delete"
                                                           "\n/list - /join - /leave"
-                                                          "\n Already ported:"
                                                           "\n/megacall"
-                                                          "\n/calla"
-                                                          "\n/helproll : ayuda de /roll"
-                                                          "\n/helpold : old commands")
+                                                          "\n/calla - /stfu"
+                                                          "\n/helproll : help for /roll")
 
 
-def helpold(bot, update):
-    bot.send_message(chat_id=update.message.chat_id, text="CallBOT old v.Dofitos:"
-                                                          "\n/cs : Call CS."
-                                                          "\n/hots ó /hos : Call HotS."
-                                                          "\n/joincs y /leavecs "
-                                                          "\n/joinhots y /leavehots ")
-
-
-def helproll(bot, update):
-    bot.send_message(chat_id=update.message.chat_id, text="Roll: utiliza numeros enteros: "
-                                                          "\n/roll - random entre 0 y 100"
-                                                          "\n/roll <max> - entre 0 y <max>"
-                                                          "\n/roll <min> <max> - adivina... "
+#######################################################
+#                  ROLL METHODS
+#######################################################
+def help_roll(bot, update):
+    bot.send_message(chat_id=update.message.chat_id, text="Roll: Use integer numbers: "
+                                                          "\n/roll - random between 0 & 100"
+                                                          "\n/roll <max> - between 0 & <max>"
+                                                          "\n/roll <min> <max> - try to guess... "
                                                           "\n/flip - headz or tailz!")
 
 
@@ -92,15 +83,13 @@ def roll(bot, update):
                 result = random.randint(int(params[1]), int(params[2]))
                 values[0] = params[1]
                 values[1] = params[2]
-            print(result)
         user = update.message.from_user.first_name + " " + update.message.from_user.last_name
         user = user.rstrip()
-        ttr = "Random en [{}, {}]".format(values[0], values[1]) + \
-              "\nResult ({}): {}!".format(user, result)
-        print(ttr)
-        bot.send_message(chat_id=update.message.chat_id, text=ttr)
+        text_to_return = "Random en [{}, {}]".format(values[0], values[1]) + \
+                         "\nResult ({}): {}!".format(user, result)
+        bot.send_message(chat_id=update.message.chat_id, text=text_to_return)
     except:
-        helproll(bot, update)
+        help_roll(bot, update)
 
 
 def flip(bot, update):
@@ -108,24 +97,15 @@ def flip(bot, update):
         result = "Headz!"
     else:
         result = "Tailz!"
-    return_text = "Coin flip: " + result
-    print(return_text)
-    bot.send_message(chat_id=update.message.chat_id, text=return_text)
+    user = update.message.from_user.first_name + " " + update.message.from_user.last_name
+    user = user.rstrip()
+    text_to_return = "Coin flip ({}): {}".format(user, result)
+    bot.send_message(chat_id=update.message.chat_id, text=text_to_return)
 
 
-def hots(bot, update):
-    print('hots llamado')
-    ret = send_call('hots', 'CALL: HEROES OF THE STORM!', str(update.message.chat_id))
-    print('hots explicando')
-    print(ret)
-    # bot.send_message(chat_id=update.message.chat_id, text="OLD!!! CALL: HEROES OF THE STORM! \n + @gtorres @druscaelan @uborzz \n A partir cabezas!")
-
-
-def cs(bot, update):
-    print('cs llamado')
-    send_call('csgo', 'CALL: COUNTER STRIKE!', str(update.message.chat_id))
-    print('cs explicando')
-
+#######################################################
+#                  EN DESARROLLO
+#######################################################
 
 def add_user(uid, nick, collection):
     new_user = {'uid': uid, 'nick': nick}
@@ -153,6 +133,11 @@ def rm_user(uid, collection):
         db[collection].delete_many({'uid': uid})
 
 
+#######################################################
+#                  PORTANDO
+#######################################################
+
+@app.on_message(Filters.command(["create", "create@uborzbot"]))
 def create(bot, update):
     params = update.message.text.split()
 
@@ -362,18 +347,19 @@ def mentions(nombre, chatid):
     return result
 
 
-def lista(bot, update):
-    group = update.message.chat_id
+@app.on_message(Filters.command(["list", "list@uborzbot"]))
+def lista(client, message):
+    group = message.chat.id
     q = db.calls.find({'group': group}, {'nombre': 1, 'desc': 1, 'owner': 1, '_id': 0})
     info = ['''\n{}: "{}"'''.format(ele['nombre'], ele['desc']) for ele in q]
-
     text = ''.join(info)
+
     if text:
-        bot.send_message(chat_id=group, text="Calls de este grupo:" + text
-                                             + "\n/create para nuevo call"
-                                               "\n/modify para editar texto")
+        client.send_message(chat_id=group, text="Calls de este grupo:{}"
+                                                "\n/create para nuevo call"
+                                                "\n/modify para editar texto".format(text))
     else:
-        bot.send_message(chat_id=group, text="No hay Calls en este grupo."
+        client.send_message(chat_id=group, text="No hay Calls en este grupo."
                                              "\n/create para crear nuevo call."
                                              "\n/help para ver comandos.")
 
@@ -434,9 +420,9 @@ def calla(client, message):
 # TODO Revisar esto, no lee todos los mensajes...
 @app.on_message(~Filters.bot)
 def doom(client, message):
-    print("doom")
+    # print("doom")
     time_now = datetime.utcnow()
-    print(message)
+    # print(message)
     user = message.from_user
     chat_id = message.chat.id
     r = doomed.find_one({"uid": user['id'], "first_name": user['first_name'], "chat_id": chat_id})
@@ -480,34 +466,6 @@ def helpdelete(bot, update):
                                                           "\nNecesario ser admin o creador del call.")
 
 
-def joincs(bot, update):
-    collection = 'csgo' + str(update.message.chat_id)
-    fname = update.message.from_user.first_name
-    uid = update.message.from_user.id
-    add_user(uid, fname, collection)
-
-
-def leavecs(bot, update):
-    collection = 'csgo' + str(update.message.chat_id)
-    fname = update.message.from_user.first_name
-    uid = update.message.from_user.id
-    rm_user(uid, collection)
-
-
-def joinhots(bot, update):
-    collection = 'hots' + str(update.message.chat_id)
-    fname = update.message.from_user.first_name
-    uid = update.message.from_user.id
-    add_user(uid, fname, collection)
-
-
-def leavehots(bot, update):
-    collection = 'hots' + str(update.message.chat_id)
-    fname = update.message.from_user.first_name
-    uid = update.message.from_user.id
-    rm_user(uid, collection)
-
-
 def send_call(calls, text, chatid_str):
     text = text + '\n' + comp_text(calls + chatid_str)
     vmid = '/sendmessage?chat_id=' + chatid_str + '&text='
@@ -530,29 +488,18 @@ def comp_text(collection):
 
 
 from telegram.ext import CommandHandler
-
-dispatcher.add_handler(CommandHandler('start', start))
 dispatcher.add_handler(CommandHandler('help', help))
-dispatcher.add_handler(CommandHandler('helproll', helproll))
-dispatcher.add_handler(CommandHandler('helpold', helpold))
+dispatcher.add_handler(CommandHandler('helproll', help_roll))
 dispatcher.add_handler(CommandHandler('create', create))
 dispatcher.add_handler(CommandHandler('join', join))
 dispatcher.add_handler(CommandHandler('leave', leave))
 dispatcher.add_handler(CommandHandler('delete', delete))
 dispatcher.add_handler(CommandHandler('call', call))
 dispatcher.add_handler(CommandHandler('modify', modify))
-dispatcher.add_handler(CommandHandler('list', lista))
 dispatcher.add_handler(CommandHandler('calls', lista))
 dispatcher.add_handler(CommandHandler('flip', flip))
 dispatcher.add_handler(CommandHandler('roll', roll))
 dispatcher.add_handler(CommandHandler('random', roll))
-dispatcher.add_handler(CommandHandler('hots', hots))
-dispatcher.add_handler(CommandHandler('hos', hots))
-dispatcher.add_handler(CommandHandler('cs', cs))
-dispatcher.add_handler(CommandHandler('joincs', joincs))
-dispatcher.add_handler(CommandHandler('joinhots', joinhots))
-dispatcher.add_handler(CommandHandler('leavecs', leavecs))
-dispatcher.add_handler(CommandHandler('leavehots', leavehots))
 updater.start_polling()
 app.run()
 # updater.idle()
