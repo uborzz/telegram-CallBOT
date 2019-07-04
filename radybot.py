@@ -20,12 +20,14 @@ vend = '&parse_mode=HTML&mtproto=true'
 from pyrogram import Client, Filters
 from pyrogram.api import functions, types
 
+
 def limpieza_expirados():
     print("rutina limpia...")
     time_now = datetime.now()
     doomed.delete_many({'ts_reset': {'$gt': time_now}})
     # result = doomed.delete_many({'ts_lib': {'$gt': time_now}})
     # print(result)
+
 
 scheduler = BackgroundScheduler()
 scheduler.start()
@@ -41,6 +43,7 @@ dispatcher = updater.dispatcher
 
 doomed = db['doomed']
 q = doomed.find({}, {"uid": 1})
+
 
 def start(bot, update):
     bot.send_message(chat_id=update.message.chat_id, text="CallBOT v4.0! /help para aiuda! ")
@@ -134,7 +137,7 @@ def add_user(uid, nick, collection):
             break
     if not found:
         db[collection].insert_one(new_user)
-        print(new_user, 'added to ' + colletion[:4])
+        print(new_user, 'added to ' + collection[:4])
     else:
         print(new_user, 'already in the database')
 
@@ -413,7 +416,9 @@ def calla(client, message):
                         date_first_message = datetime.utcfromtimestamp(message.date)
                         date_liberation = date_first_message + timedelta(minutes=10)
                         date_reset = date_first_message + timedelta(hours=3)
-                        doomed.insert_one({"uid": user['id'], "first_name": user['first_name'], "chat_id": chat_id, "ts_doom": date_first_message, "ts_lib": date_liberation, "ts_reset": date_reset})
+                        doomed.insert_one({"uid": user['id'], "first_name": user['first_name'], "chat_id": chat_id,
+                                           "ts_doom": date_first_message, "ts_lib": date_liberation,
+                                           "ts_reset": date_reset})
                         text = '<a href="tg://user?id={}">{}</a> '.format(user['id'], user['first_name'])
                         text = text + " is DOOMED now!"
                     client.send_message(message.chat.id, text, parse_mode="html")
@@ -424,6 +429,7 @@ def calla(client, message):
     except ValueError as e:
         print(e)
         # client.send_message(message.chat.id, 'ValueError! /megacall sólo funciona en grupos.', parse_mode="html")
+
 
 # TODO Revisar esto, no lee todos los mensajes...
 @app.on_message(~Filters.bot)
@@ -533,7 +539,6 @@ dispatcher.add_handler(CommandHandler('create', create))
 dispatcher.add_handler(CommandHandler('join', join))
 dispatcher.add_handler(CommandHandler('leave', leave))
 dispatcher.add_handler(CommandHandler('delete', delete))
-
 dispatcher.add_handler(CommandHandler('call', call))
 dispatcher.add_handler(CommandHandler('modify', modify))
 dispatcher.add_handler(CommandHandler('list', lista))
