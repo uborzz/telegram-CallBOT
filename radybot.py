@@ -49,9 +49,9 @@ q = doomed.find({}, {"uid": 1})
 #                GENERAL HELP METHODS
 #######################################################
 def help(bot, update):
-    print(update.message)
+    # print(update.message)
     bot.send_message(chat_id=update.message.chat_id, text="CallBOT v4.1! Commands: "
-                                                          "\n/create - /delete - /list - /detail"
+                                                          "\n/create - /delete - /list"
                                                           "\n/call - /join - /leave"
                                                           "\n/megacall - /calla"
                                                           "\n/helproll : help for /roll")
@@ -136,14 +136,17 @@ def flip(bot, update):
 @app.on_message(Filters.command(["list", "list@uborzbot"]))
 def lista(client, message):
     group = message.chat.id
-    q = db.calls.find({'group': group}, {'name': 1, 'desc': 1, 'owner': 1, '_id': 0})
-    info = ['''\n{}: "{}"'''.format(ele['name'], ele['desc']) for ele in q]
+    q = db.calls.find({'group': group}, {'name': 1, 'desc': 1, '_id': 0})
+    info = ['''\n<b>{}</b>: "{}"'''.format(ele['name'], ele['desc']) for ele in q]
     text = ''.join(info)
 
     if text:
-        client.send_message(chat_id=group, text="Calls in this group:{}"
-                                                "\n/create to create a new call"
-                                                "\n/modify to edit description".format(text))
+        client.send_message(chat_id=group,
+                            text="Calls in this group:{}"
+                                 "\n/create to create a new call"
+                                 "\n/modify to edit description"
+                                 "\n/detail to show more info".format(text),
+                            parse_mode="html")
     else:
         client.send_message(chat_id=group, text="No calls found in this group"
                                              "\n/create to create a new call"
@@ -156,15 +159,15 @@ def detail(client, message):
     q = db.calls.find({'group': group}, {'name': 1, 'users': 1, 'owner': 1, '_id': 0})
     info = list()
     for element in q:
-        print(element)
+        owner = ''.join('<a href="tg://user?id={}">{}</a>'.format(element["owner"]["uid"], element["owner"]["fname"]))
         if element["users"]:
             users = ", ".join([user['fname'] for user in element['users']])
         else:
-            users = "<Empty call>"
-        info.append("\n{}: {}".format(element['name'], users))
+            users = "-Empty call-"
+        info.append("\n<b>{}</b> (owner {}): {}".format(element['name'], owner, users))
 
     if info:
-        client.send_message(chat_id=group, text="Calls in this group:{}".format(''.join(info)))
+        client.send_message(chat_id=group, text="Calls in this group:{}".format(''.join(info)), parse_mode="html")
     else:
         client.send_message(chat_id=group, text="No calls found in this group"
                                                 "\n/create to create a new call"
@@ -176,7 +179,7 @@ def detail(client, message):
 #######################################################
 @app.on_message(Filters.command(["create", "create@uborzbot"]))
 def create(client, message):
-    print(message)
+    # print(message)
     params = message.text.split()
     chat_id = message.chat.id
 
@@ -196,7 +199,7 @@ def create(client, message):
             fields = {'group': chat_id,
                       'name': params[1].lower(),
                       'desc': desc,
-                      'owner': message.from_user.id,
+                      'owner': {'uid': message.from_user.id, 'fname': message.from_user.first_name},
                       'users': list()}
             # print(fields)
             db.calls.insert_one(fields)
@@ -241,8 +244,8 @@ def delete(client, message):
         query_result = db.calls.find_one({'name': name, 'group': chat_id}, {'owner': 1, '_id': 0})
         admin_ids = [user['user']['id'] for user in admins]
         if query_result:
-            creator = query_result['owner']
-            admins.append(creator)
+            creator_id = query_result['owner']['uid']
+            admin_ids.append(creator_id)
         print(admin_ids)
 
         if caller in admin_ids:
@@ -332,53 +335,6 @@ def call(client, message):
             help_call(client, chat_id)
 
 
-#TODO REVISAR, No necesario con replanteamiento
-def cast_call(call_name, desc, chat_id):
-    text = desc + '\n' + mentions(call_name, chat_id)
-    vmid = '/sendmessage?chat_id=' + str(chat_id) + '&text='
-    url = rootpwr + creds.token + vmid + text + vend
-    print(url)
-    response = requests.get(url)
-    content = response.content.decode("utf8")
-    return content
-
-
-#TODO REVISAR, No necesario con replanteamiento
-def mentions(nombre, chatid):
-    print('mentions...')
-    users = db.calls.find_one({'nombre': nombre, 'group': chatid}, {'users': 1, '_id': 0})
-    users = users['users']
-    if users:
-        result = ''.join(['<a href="mention:{}">{}</a> '.format(user['uid'], user['fname']) for user in users])
-    else:
-        result = 'Empty group... shit!'
-
-    return result
-
-
-#TODO REVISAR, No necesario con replanteamiento
-def send_call(calls, text, chatid_str):
-    text = text + '\n' + comp_text(calls + chatid_str)
-    vmid = '/sendmessage?chat_id=' + chatid_str + '&text='
-    url = rootpwr + creds.token + vmid + text + vend
-    print(url)
-    # calls = '<a href="mention:{}">{}</a> '.format(str(uid), fname)
-    response = requests.get(url)
-    content = response.content.decode("utf8")
-    return content
-    # print()
-
-
-#TODO REVISAR, No necesario con replanteamiento
-def comp_text(collection):
-    result = ''
-    users = db[collection].find()
-    for user in users:
-        user['uid']
-        result += '<a href="mention:{}">{}</a> '.format(user['uid'], user['nick'])
-    return result
-
-
 #######################################################
 #                 MEGACALL
 #######################################################
@@ -465,7 +421,6 @@ def doom(client, message):
     else:
         # print("AHORA", time_now)
         pass
-
 
 
 # ToDO: add members to groups (admins, or users?)
