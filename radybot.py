@@ -6,9 +6,12 @@ import requests
 import pymongo
 import random
 import creds
+from datetime import datetime, timedelta
+from threading import Thread
+from apscheduler.schedulers.background import BackgroundScheduler
 
-# client = pymongo.MongoClient(creds.mongo_host, creds.mongo_port)
-# db = client.callsdb
+client = pymongo.MongoClient(creds.mongo_host, creds.mongo_port)
+db = client.callsdb
 
 rootpwr = 'https://api.telegram.org/bot'
 vend = '&parse_mode=HTML&mtproto=true'
@@ -17,6 +20,18 @@ vend = '&parse_mode=HTML&mtproto=true'
 from pyrogram import Client, Filters
 from pyrogram.api import functions, types
 
+def limpieza_expirados():
+    print("rutina limpia...")
+    time_now = datetime.now()
+    doomed.delete_many({'ts_reset': {'$gt': time_now}})
+    # result = doomed.delete_many({'ts_lib': {'$gt': time_now}})
+    # print(result)
+
+scheduler = BackgroundScheduler()
+scheduler.start()
+scheduler.add_job(limpieza_expirados, "interval", minutes=10)
+# scheduler.add_job(limpieza_expirados, "interval", minutes=1)
+
 app = Client(creds.token,
              api_id=creds.id,
              api_hash=creds.hash)
@@ -24,19 +39,22 @@ app = Client(creds.token,
 updater = Updater(token=creds.token)
 dispatcher = updater.dispatcher
 
+doomed = db['doomed']
+q = doomed.find({}, {"uid": 1})
 
 def start(bot, update):
-    bot.send_message(chat_id=update.message.chat_id, text="CallBOT v3.0! /help para aiuda! ")
+    bot.send_message(chat_id=update.message.chat_id, text="CallBOT v4.0! /help para aiuda! ")
 
 
 def help(bot, update):
     print(update.message)
-    bot.send_message(chat_id=update.message.chat_id, text="CallBOT v3.0! Comandos: "
+    bot.send_message(chat_id=update.message.chat_id, text="CallBOT v4.0! Comandos: "
                                                           "\n Disabled atm..."
                                                           "\n/call - /create - /delete"
                                                           "\n/list - /join - /leave"
                                                           "\n Already ported:"
                                                           "\n/megacall"
+                                                          "\n/calla"
                                                           "\n/helproll : ayuda de /roll"
                                                           "\n/helpold : old commands")
 
@@ -361,16 +379,82 @@ def lista(bot, update):
 def megacall(client, message):
     print("megacall")
     chat_id = message.chat.id
-    participants = app.get_chat_members(chat_id, offset=0, limit=200)
+    try:
+        participants = app.get_chat_members(chat_id, offset=0, limit=200)
+        users = [(user['user']['id'], user['user']['first_name']) for user in participants['chat_members'] if
+                 user['user']['is_bot'] is False]
+        print(users)
+        mentions = ''.join(['<a href="tg://user?id={}">{}</a> '.format(user[0], user[1]) for user in users])
+        text = "FUCKING MEGACALL!!!\n" + mentions
+        client.send_message(message.chat.id, text, parse_mode="html")
+    except ValueError:
+        client.send_message(message.chat.id, 'ValueError! megacall sólo funciona en grupos.', parse_mode="html")
 
-    users = [(user['user']['id'], user['user']['first_name']) for user in participants['chat_members'] if
-             user['user']['is_bot'] == False]
-    print(users)
 
-    mentions = ''.join(['<a href="tg://user?id={}">{}</a> '.format(user[0], user[1]) for user in users])
+@app.on_message(Filters.command(["calla", "calla@uborzbot", "stfu", "stfu@uborzbot"]))
+def calla(client, message):
+    print("calla")
+    # print(message)
+    chat_id = message.chat.id
+    # print(type(message))
+    try:
+        # message.reply("reply :)", quote=True)
+        if message.reply_to_message:
+            user = message.reply_to_message.from_user
+            if user['is_bot']:
+                client.send_message(message.chat.id, 'No le hagas /calla a un bot, cabrón.', parse_mode="html")
+            else:
+                try:
+                    r = doomed.find_one({"uid": user['id'], "first_name": user['first_name'], "chat_id": chat_id})
+                    if r:
+                        text = '<a href="tg://user?id={}">{}</a> '.format(user['id'], user['first_name'])
+                        text = text + " ya ha sido maldito recientemente... dale un fucking break, ok?"
+                    else:
+                        date_first_message = datetime.utcfromtimestamp(message.date)
+                        date_liberation = date_first_message + timedelta(minutes=10)
+                        date_reset = date_first_message + timedelta(hours=3)
+                        doomed.insert_one({"uid": user['id'], "first_name": user['first_name'], "chat_id": chat_id, "ts_doom": date_first_message, "ts_lib": date_liberation, "ts_reset": date_reset})
+                        text = '<a href="tg://user?id={}">{}</a> '.format(user['id'], user['first_name'])
+                        text = text + " is DOOMED now!"
+                    client.send_message(message.chat.id, text, parse_mode="html")
+                except Exception as e:
+                    print(e)
+        else:
+            client.send_message(message.chat.id, 'Usa /calla en reply a un mensaje.', parse_mode="html")
+    except ValueError as e:
+        print(e)
+        # client.send_message(message.chat.id, 'ValueError! /megacall sólo funciona en grupos.', parse_mode="html")
 
-    text = "FUCKING MEGACALL!!!\n" + mentions
-    client.send_message(message.chat.id, text, parse_mode="html")
+# TODO Revisar esto, no lee todos los mensajes...
+@app.on_message(~Filters.bot)
+def doom(client, message):
+    print("doom")
+    time_now = datetime.utcnow()
+    print(message)
+    user = message.from_user
+    chat_id = message.chat.id
+    r = doomed.find_one({"uid": user['id'], "first_name": user['first_name'], "chat_id": chat_id})
+    if r and time_now >= r['ts_reset']:
+        doomed.delete_one({"uid": user['id'], "first_name": user['first_name'], "chat_id": chat_id})
+    elif r and time_now <= r['ts_lib']:
+        # print("AHORA", time_now)
+        # print("TIME LIB", r['ts_lib'])
+
+        message_random = random.randint(1, 6)
+        if message_random >= 6:
+            message.reply("QUE ME LEVANTO!", quote=True)
+        elif message_random >= 4:
+            message.reply("CALLAAAAAAAAAA!!", quote=True)
+        else:
+            message.reply("CALLA!", quote=True)
+    # elif r:
+    #     # print("AHORA PYTHON", time_now)
+    #     # print("TIME LIBERA", r['ts_lib'])
+    #     # print("TIME RESET", r['ts_reset'])
+    #     pass
+    else:
+        # print("AHORA", time_now)
+        pass
 
 
 def helpcreate(bot, update):
