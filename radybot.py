@@ -54,24 +54,25 @@ def help(bot, update):
                                                           "\n/call - /create - /delete"
                                                           "\n/list - /join - /leave"
                                                           "\n/megacall"
-                                                          "\n/calla - /stfu"
+                                                          "\n/calla"
                                                           "\n/helproll : help for /roll")
 
 
 def help_call(client, chat_id):
     client.send_message(chat_id=chat_id, text="How to: /call <name>"
-                                                          "\nname must be a previously created call."
-                                                          "\n/list or /calls to list the calls."
-                                                          "\n/megacall for calling everyone in the group.")
+                                                          "\nname must be a previously created call"
+                                                          "\n/list or /calls to list the calls"
+                                                          "\n/megacall for calling everyone in the group")
 
 
 def help_create(client, chat_id):
     client.send_message(chat_id=chat_id, text="How to: /create <name> <(description)>"
-                                                          "\ndescription is optional.")
+                                              "\n* description is optional*")
 
 
 def help_join(client, chat_id):
-    client.send_message(chat_id=chat_id, text="How to: /join <name>")
+    client.send_message(chat_id=chat_id, text="How to: /join <name>"
+                                              "\n* name must exist")
 
 
 def help_leave(client, chat_id):
@@ -80,7 +81,7 @@ def help_leave(client, chat_id):
 
 def help_delete(client, chat_id):
     client.send_message(chat_id=chat_id, text="How to: /delete <name>"
-                                              "\nMust be group admin or the call creator.")
+                                              "\nOnly group admins and call creators can delete calls")
 
 
 #######################################################
@@ -145,7 +146,7 @@ def lista(client, message):
                                                 "\n/create to create a new call"
                                                 "\n/modify to edit description".format(text))
     else:
-        client.send_message(chat_id=group, text="No hay Calls en este grupo."
+        client.send_message(chat_id=group, text="No calls found in this group"
                                              "\n/create to create a new call"
                                              "\n/help to list more commands")
 
@@ -161,8 +162,8 @@ def create(client, message):
 
     elif len(params) >= 2:
         q = db.calls.find_one({'group': chat_id,
-                               'name': params[1]})
-        print(q)
+                               'name': params[1].lower()})
+        # print(q)
         if not q:
             if len(params) >= 3:
                 prov = params[2:]
@@ -170,7 +171,7 @@ def create(client, message):
             else:
                 desc = "CALL: {}!".format(params[1].upper())
             fields = {'group': chat_id,
-                      'name': params[1],
+                      'name': params[1].lower(),
                       'desc': desc,
                       'owner': message.from_user.id,
                       'users': list()}
@@ -189,20 +190,20 @@ def modify(client, message):
     if len(params) >= 3:
         prov = params[2:]
         desc = ' '.join(prov)
-        q = db.calls.find_one_and_update({'name': params[1], 'group': chat_id},
+        q = db.calls.find_one_and_update({'name': params[1].lower(), 'group': chat_id},
                                          {'$set': {'desc': desc}})
         if not q:
-            client.send_message(chat_id=chat_id, text="Specified call does not exist."
-                                                      "\n/create <name> <(desc)>.")
+            client.send_message(chat_id=chat_id, text="Specified call does not exist"
+                                                      "\n/create <name> <(desc)>")
         else:
             print("HOLA")
     else:
-        client.send_message(chat_id=chat_id, text="Specify the name and description."
-                                                  "\n/modify <name> <desc>.")
+        client.send_message(chat_id=chat_id, text="Specify the name and description"
+                                                  "\n/modify <name> <desc>")
 
 
 #######################################################
-#                 JOIN AND LEAVE
+#        JOIN AND LEAVE CALLS (USER HIMSELF)
 #######################################################
 @app.on_message(Filters.command(["join", "join@uborzbot"]))
 def join(client, message):
@@ -210,7 +211,7 @@ def join(client, message):
     chat_id = message.chat.id
 
     if len(params) == 2:
-        call_name = params[1]
+        call_name = params[1].lower()
         fname = message.from_user.first_name
         uid = message.from_user.id
         user = {'uid': uid, 'fname': fname}
@@ -234,7 +235,7 @@ def leave(client, message):
     chat_id = message.chat.id
 
     if len(params) == 2:
-        name = params[1]
+        name = params[1].lower()
         print("leave")
         fname = message.from_user.first_name
         uid = message.from_user.id
@@ -260,23 +261,23 @@ def delete(client, message):
     chat_id = message.chat.id
 
     caller = message.from_user.id
-    admins = client.getChatAdministrators(chat_id)
-    print(admins)
+    admins = client.get_chat_members(chat_id=chat_id, filter="administrators").chat_members
 
     if len(params) == 2:
-        name = params[1]
-        creator = db.calls.find_one({'name': name, 'group': chat_id}, {'owner': 1, '_id': 0})['owner']
-        admins = [ele['user']['id'] for ele in admins]
-        admins.append(creator)
-        print(admins)
+        name = params[1].lower()
+        query_result = db.calls.find_one({'name': name, 'group': chat_id}, {'owner': 1, '_id': 0})
+        admin_ids = [user['user']['id'] for user in admins]
+        if query_result:
+            creator = query_result['owner']
+            admins.append(creator)
+        print(admin_ids)
 
-        if caller in admins:
+        if caller in admin_ids:
             print("delete", name)
             try:
                 q = db.calls.find_one_and_delete({'name': name, 'group': chat_id})
-                print(q)
             except:
-                print("Nope")
+                print("Error")
         else:
             help_delete(client, chat_id)
 
@@ -297,7 +298,7 @@ def call(client, message):
         help_call(client, chat_id)
 
     elif len(params) >= 2:
-        name = params[1]
+        name = params[1].lower()
         text = db.calls.find_one({'group': chat_id,
                                   'name': name}, {'desc': 1, '_id': 0})
         if text:
@@ -373,7 +374,7 @@ def megacall(client, message):
         text = "FUCKING MEGACALL!!!\n" + mentions
         client.send_message(message.chat.id, text, parse_mode="html")
     except ValueError:
-        client.send_message(message.chat.id, 'ValueError! megacall sólo funciona en grupos.', parse_mode="html")
+        client.send_message(message.chat.id, 'Megacall only works in groups!', parse_mode="html")
 
 
 #######################################################
