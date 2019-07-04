@@ -50,18 +50,17 @@ q = doomed.find({}, {"uid": 1})
 #######################################################
 def help(bot, update):
     print(update.message)
-    bot.send_message(chat_id=update.message.chat_id, text="CallBOT v4.0! Commands: "
-                                                          "\n/call - /create - /delete"
-                                                          "\n/list - /join - /leave"
-                                                          "\n/megacall"
-                                                          "\n/calla"
+    bot.send_message(chat_id=update.message.chat_id, text="CallBOT v4.1! Commands: "
+                                                          "\n/create - /delete - /list - /detail"
+                                                          "\n/call - /join - /leave"
+                                                          "\n/megacall - /calla"
                                                           "\n/helproll : help for /roll")
 
 
 def help_call(client, chat_id):
     client.send_message(chat_id=chat_id, text="How to: /call <name>"
-                                                          "\nname must be a previously created call"
-                                                          "\n/list or /calls to list the calls"
+                                                          "\n* name must be a previously created call"
+                                                          "\n/list or /detail to check the calls"
                                                           "\n/megacall for calling everyone in the group")
 
 
@@ -167,7 +166,9 @@ def detail(client, message):
     if info:
         client.send_message(chat_id=group, text="Calls in this group:{}".format(''.join(info)))
     else:
-        client.send_message(chat_id=group, text="No calls found in this group")
+        client.send_message(chat_id=group, text="No calls found in this group"
+                                                "\n/create to create a new call"
+                                                "\n/help to list more commands")
 
 
 #######################################################
