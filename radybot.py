@@ -48,17 +48,15 @@ q = doomed.find({}, {"uid": 1})
 #######################################################
 #                GENERAL HELP METHODS
 #######################################################
-@app.on_message(Filters.command(["help", "help@uborzbot"]))
-def help(client, chat_id):
-    # print(update.message)
-    client.send_message(chat_id=chat_id,
-                        text="<b>CallBOT v4.2!</b>"
-                             "\nGeneral Calls Commands:"
-                             "\n/create - /list - /call - /delete"
-                             "\n/join - /leave - /add - /kick"
-                             "\nOther tools: /megacall - /calla - /roll"
-                             "\nHelp for roll: /helproll",
-                        parse_mode="html")
+# @app.on_message(Filters.command(["help", "help@uborzbot"]))
+def help(bot, update):
+    bot.send_message(chat_id=update.message.chat_id,
+                     text="CallBOT v4.2!"
+                          "\nGeneral Calls Commands:"
+                          "\n/create - /list - /call - /delete"
+                          "\n/join - /leave - /add - /kick"
+                          "\nOther tools: /megacall - /calla - /roll"
+                          "\nHelp for roll: /helproll")
 
 
 def help_call(client, chat_id):
@@ -568,6 +566,7 @@ def doom(client, message):
 
 from telegram.ext import CommandHandler
 
+dispatcher.add_handler(CommandHandler('help', help))
 dispatcher.add_handler(CommandHandler('helproll', help_roll))
 dispatcher.add_handler(CommandHandler('calls', lista))
 dispatcher.add_handler(CommandHandler('flip', flip))
