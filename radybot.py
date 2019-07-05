@@ -48,20 +48,24 @@ q = doomed.find({}, {"uid": 1})
 #######################################################
 #                GENERAL HELP METHODS
 #######################################################
-def help(bot, update):
+@app.on_message(Filters.command(["help", "help@uborzbot"]))
+def help(client, chat_id):
     # print(update.message)
-    bot.send_message(chat_id=update.message.chat_id, text="CallBOT v4.1! Commands: "
-                                                          "\n/create - /delete - /list"
-                                                          "\n/call - /join - /leave"
-                                                          "\n/megacall - /calla"
-                                                          "\n/helproll : help for /roll")
+    client.send_message(chat_id=chat_id,
+                        text="<b>CallBOT v4.2!</b>"
+                             "\nGeneral Calls Commands:"
+                             "\n/create - /list - /call - /delete"
+                             "\n/join - /leave - /add - /kick"
+                             "\nOther tools: /megacall - /calla - /roll"
+                             "\nHelp for roll: /helproll",
+                        parse_mode="html")
 
 
 def help_call(client, chat_id):
     client.send_message(chat_id=chat_id, text="How to: /call <name>"
-                                                          "\n* name must be a previously created call"
-                                                          "\n/list or /detail to check the calls"
-                                                          "\n/megacall for calling everyone in the group")
+                                              "\n* name must be a previously created call"
+                                              "\n/list or /detail to check the calls"
+                                              "\n/megacall for calling everyone in the group")
 
 
 def help_create(client, chat_id):
@@ -81,6 +85,18 @@ def help_leave(client, chat_id):
 def help_delete(client, chat_id):
     client.send_message(chat_id=chat_id, text="How to: /delete <name>"
                                               "\nOnly group admins and call creators can delete calls")
+
+
+def help_add(client, chat_id):
+    client.send_message(chat_id=chat_id, text="How to: /add <call_name> <[users_mentioned]"
+                                              "\n* call_name must exist"
+                                              "\n* add as many mentioned users as you want")
+
+
+def help_kick(client, chat_id):
+    client.send_message(chat_id=chat_id, text="How to: /kick <call_name> <[users_mentioned]"
+                                              "\n* call_name must exist"
+                                              "\n* as many mentioned users as you want")
 
 
 #######################################################
@@ -128,7 +144,6 @@ def flip(bot, update):
     bot.send_message(chat_id=update.message.chat_id, text=text_to_return)
 
 
-
 #######################################################
 #                LIST AND DETAILS
 #######################################################
@@ -149,8 +164,8 @@ def lista(client, message):
                             parse_mode="html")
     else:
         client.send_message(chat_id=group, text="No calls found in this group"
-                                             "\n/create to create a new call"
-                                             "\n/help to list more commands")
+                                                "\n/create to create a new call"
+                                                "\n/help to list more commands")
 
 
 @app.on_message(Filters.command(["detail", "details", "detail@uborzbot", "details@uborzbot"]))
@@ -235,23 +250,15 @@ def modify(client, message):
 def delete(client, message):
     params = message.text.split()
     chat_id = message.chat.id
-
     caller = message.from_user.id
-    admins = client.get_chat_members(chat_id=chat_id, filter="administrators").chat_members
 
     if len(params) == 2:
-        name = params[1].lower()
-        query_result = db.calls.find_one({'name': name, 'group': chat_id}, {'owner': 1, '_id': 0})
-        admin_ids = [user['user']['id'] for user in admins]
-        if query_result:
-            creator_id = query_result['owner']['uid']
-            admin_ids.append(creator_id)
-        print(admin_ids)
+        call_name = params[1].lower()
+        admin_ids = get_admin_and_creator_ids(client, chat_id, call_name)
 
         if caller in admin_ids:
-            print("delete", name)
             try:
-                q = db.calls.find_one_and_delete({'name': name, 'group': chat_id})
+                q = db.calls.find_one_and_delete({'name': call_name, 'group': chat_id})
             except:
                 print("Error")
         else:
@@ -325,14 +332,57 @@ def call(client, message):
     elif len(params) >= 2:
         name = params[1].lower()
         query = db.calls.find_one({'group': chat_id,
-                                  'name': name}, {'desc': 1, 'users': 1, '_id': 0})
+                                   'name': name}, {'desc': 1, 'users': 1, '_id': 0})
         if query:
-            mentions = ''.join(['<a href="tg://user?id={}">{}</a> '.format(user["uid"], user["fname"]) for user in query['users']])
+            mentions = ''.join(
+                ['<a href="tg://user?id={}">{}</a> '.format(user["uid"], user["fname"]) for user in query['users']])
             text = query['desc'] + "\n" + mentions
             client.send_message(message.chat.id, text, parse_mode="html")
 
         else:
             help_call(client, chat_id)
+
+
+#######################################################
+#                 AUXILIAR / FUNCTIONS
+#######################################################
+def extract_mentioned_users(client, message):
+    """
+    Recibe un mensaje para sacar de él todas las menciones de usuario y devolver el ID y First Name,
+    tanto menciones directas (@coleguita) como text_mentions de usuarios sin username.
+
+    :param client:      Pyrogram Client
+    :param message:     Pyrogram Message object
+    :return:            Dictionary with "uid" <int> and "fname" <str> fields.
+    """
+    users_mentioned = list()
+    for ent in message.entities:
+        if ent["type"] == "mention":
+            mention_in_message = message.text[ent['offset']:ent['offset'] + ent['length']]
+            username = mention_in_message[1:]
+            user = client.get_users(username)
+            users_mentioned.append({"uid": user["id"], "fname": user["first_name"]})
+        elif ent["type"] == "text_mention":
+            users_mentioned.append({"uid": ent["user"]["id"], "fname": ent["user"]["first_name"]})
+    return users_mentioned
+
+
+def get_admin_and_creator_ids(client, chat_id, call_name):
+    """
+    Devuelve lista con los ids de los administradores del canal/grupo y el creador de la call.
+
+    :param client:      Pyrogram Client
+    :param chat_id:     Group ID
+    :param call_name:   Call name
+    :return:            List of user ids
+    """
+    admins = client.get_chat_members(chat_id=chat_id, filter="administrators").chat_members
+    query_result = db.calls.find_one({'name': call_name, 'group': chat_id}, {'owner': 1, '_id': 0})
+    admin_ids = [user['user']['id'] for user in admins]
+    if query_result:
+        creator_id = query_result['owner']['uid']
+        admin_ids.append(creator_id)
+    return admin_ids
 
 
 #######################################################
@@ -352,6 +402,99 @@ def megacall(client, message):
         client.send_message(message.chat.id, text, parse_mode="html")
     except ValueError:
         client.send_message(message.chat.id, 'Megacall only works in groups!', parse_mode="html")
+
+
+# Actualmente cualquiera añade, solamente el creador o un admin elimina
+#######################################################
+#              ADD / KICK OTHER USERS
+#######################################################
+@app.on_message(Filters.command(["add", "add@uborzbot"]))
+def add_user(client, message):
+    params = message.text.split()
+    chat_id = message.chat.id
+
+    if len(params) <= 2:
+        help_add(client, chat_id)
+
+    elif len(params) > 2:
+        call_name = params[1].lower()
+        users_mentioned = extract_mentioned_users(client, message)
+
+        try:
+            q = db.calls.find_one_and_update({'name': call_name, 'group': chat_id},
+                                             {"$addToSet": {"users": {"$each": users_mentioned}}})
+            if not q:
+                help_add(client, chat_id)
+        except:
+            print("Error")
+
+
+@app.on_message(Filters.command(["kick", "kick@uborzbot"]))
+def kick_user(client, message):
+    params = message.text.split()
+    chat_id = message.chat.id
+    caller = message.from_user.id
+
+    if len(params) <= 2:
+        help_kick(client, chat_id)
+
+    else:
+        call_name = params[1].lower()
+        users_mentioned = extract_mentioned_users(client, message)
+        users_mentioned_ids = [user['uid'] for user in users_mentioned]
+        admin_and_creator_ids = get_admin_and_creator_ids(client, chat_id, call_name)
+        print(users_mentioned_ids)
+
+        if caller in admin_and_creator_ids:
+            try:
+                q = db.calls.find_one_and_update({'name': call_name, 'group': chat_id},
+                                                 {"$pull": {
+                                                     "users": {"uid": {"$in": users_mentioned_ids}}}},
+                                                 {"multi": True})
+                print(q)
+            except:
+                print("Error")
+        else:
+            help_kick(client, chat_id)
+
+
+# def add_to_group(bot, update):
+#     # params = update.message.text.split()
+#
+#     # if len(params) <= 2:
+#     #     helpadd(bot, update)
+#     #
+#     # elif len(params) >= 3:
+#     #     nombre = params[1]
+#     #     prov = params[2:]
+#     print("HOLA ADD")
+#     entera=update.message.parse_entities()
+#     print(entera)
+#     ents=update.message.entities
+#     print(ents)
+#     for ent in ents:
+#         print(ent, entera[ent])
+#
+#     print(bot.getChatMember(update.message.chat_id, "@uborzz"))
+#
+#     # print("join")
+#     # fname = update.message.from_user.first_name
+#     # uid = update.message.from_user.id
+#     # user = {'uid': uid, 'fname': fname}
+#     # try:
+#     #     print(nombre, update.message.chat_id)
+#     #     q = db.calls.find_one_and_update({'nombre': nombre, 'group': update.message.chat_id},
+#     #                              {"$addToSet": {'users': user}})
+#     #     print(q)
+#     # except:
+#     #     print("Nope")
+#
+#
+# def helpadd(bot,update):
+#     bot.send_message(chat_id=update.message.chat_id, text="/insert <nombre> <@miembros>"
+#                                                           "\nNecesario usar un call creado."
+#                                                           "\nNecesario mencionar miembros (@)."
+#                                                           "\nLos miembros deben ser parte del grupo.")
 
 
 #######################################################
@@ -423,77 +566,8 @@ def doom(client, message):
         pass
 
 
-# ToDO: add members to groups (admins, or users?)
-#######################################################
-#                  EN DESARROLLO
-#######################################################
-
-def add_user(uid, nick, collection):
-    new_user = {'uid': uid, 'nick': nick}
-    found = False
-    users = db[collection].find()
-    for user in users:
-        if user['uid'] == uid:
-            found = True
-            break
-    if not found:
-        db[collection].insert_one(new_user)
-        print(new_user, 'added to ' + collection[:4])
-    else:
-        print(new_user, 'already in the database')
-
-
-def rm_user(uid, collection):
-    found = False
-    users = db[collection].find()
-    for user in users:
-        if user['uid'] == uid:
-            found = True
-            break
-    if found:
-        db[collection].delete_many({'uid': uid})
-
-# def add_to_group(bot, update):
-#     # params = update.message.text.split()
-#
-#     # if len(params) <= 2:
-#     #     helpadd(bot, update)
-#     #
-#     # elif len(params) >= 3:
-#     #     nombre = params[1]
-#     #     prov = params[2:]
-#     print("HOLA ADD")
-#     entera=update.message.parse_entities()
-#     print(entera)
-#     ents=update.message.entities
-#     print(ents)
-#     for ent in ents:
-#         print(ent, entera[ent])
-#
-#     print(bot.getChatMember(update.message.chat_id, "@uborzz"))
-#
-#     # print("join")
-#     # fname = update.message.from_user.first_name
-#     # uid = update.message.from_user.id
-#     # user = {'uid': uid, 'fname': fname}
-#     # try:
-#     #     print(nombre, update.message.chat_id)
-#     #     q = db.calls.find_one_and_update({'nombre': nombre, 'group': update.message.chat_id},
-#     #                              {"$addToSet": {'users': user}})
-#     #     print(q)
-#     # except:
-#     #     print("Nope")
-#
-#
-# def helpadd(bot,update):
-#     bot.send_message(chat_id=update.message.chat_id, text="/insert <nombre> <@miembros>"
-#                                                           "\nNecesario usar un call creado."
-#                                                           "\nNecesario mencionar miembros (@)."
-#                                                           "\nLos miembros deben ser parte del grupo.")
-
-
 from telegram.ext import CommandHandler
-dispatcher.add_handler(CommandHandler('help', help))
+
 dispatcher.add_handler(CommandHandler('helproll', help_roll))
 dispatcher.add_handler(CommandHandler('calls', lista))
 dispatcher.add_handler(CommandHandler('flip', flip))
