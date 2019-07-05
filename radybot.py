@@ -10,7 +10,7 @@ from datetime import datetime, timedelta
 from threading import Thread
 from apscheduler.schedulers.background import BackgroundScheduler
 
-client = pymongo.MongoClient(creds.mongo_host, creds.mongo_port)
+client = pymongo.MongoClient(creds.mongo_uri)
 db = client.callsdb
 
 rootpwr = 'https://api.telegram.org/bot'
