@@ -1,0 +1,1 @@
+How to: /leave <name>
