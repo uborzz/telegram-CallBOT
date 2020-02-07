@@ -2,3 +2,5 @@
 .*
 db_folder
 *.session
+*.pyc
+__pycache__/
