@@ -5,7 +5,11 @@ verify_ssl = true
 
 [dev-packages]
 pylint = "*"
-autopep8 = "*"
+pyflakes = "*"
+black = "*"
+isort = "*"
+rope = "*"
+flake8 = "*"
 
 [packages]
 dotenv = "*"
