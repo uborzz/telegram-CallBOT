@@ -1,13 +1,13 @@
 # -*- coding: utf-8 -*-
 import os
 
+from apscheduler.schedulers.background import BackgroundScheduler
+from dotenv import load_dotenv
 from pymongo import MongoClient
 from pyrogram import Client
-from apscheduler.schedulers.background import BackgroundScheduler
 
 from bot.bot import Bot
 
-from dotenv import load_dotenv
 load_dotenv()
 
 
@@ -32,18 +32,10 @@ db_client = MongoClient(MONGO_URI)
 db = db_client[DB_NAME]
 
 print("Instantiating the Pyrogram client...")
-pyrogram_client = Client(session_name=SESSION_NAME,
-                         api_id=BOT_ID,
-                         api_hash=BOT_HASH
-                         )
+pyrogram_client = Client(session_name=SESSION_NAME, api_id=BOT_ID, api_hash=BOT_HASH)
 
 print("Instantiating the bot...")
-bot = Bot(name=BOT_NAME,
-          bot_client=pyrogram_client,
-          database=db,
-          scheduler=scheduler
-          )
+bot = Bot(name=BOT_NAME, bot_client=pyrogram_client, database=db, scheduler=scheduler)
 
 bot.load()
 bot.run()
-
