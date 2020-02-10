@@ -2,7 +2,7 @@ from typing import List
 
 from pyrogram import Client, Filters, Message
 
-from bot.zzlib import MentionedUser, expand_commands
+from bot.zzlib import SimplifiedUser, expand_commands, text_mention
 
 
 def load(bot_client: Client, name: str, megacall_text=""):
@@ -16,15 +16,12 @@ def load(bot_client: Client, name: str, megacall_text=""):
         try:
             members = client.get_chat_members(chat_id, offset=0, limit=200)
             users = [
-                MentionedUser(uid=member.user.id, fname=member.user.first_name)
+                SimplifiedUser(uid=member.user.id, fname=member.user.first_name)
                 for member in members
                 if not member.user.is_bot
             ]
-            mentions = "".join(
-                [
-                    f'<a href="tg://user?id={user.uid}">{user.fname}</a> '
-                    for user in users
-                ]
+            mentions = " ".join(
+                [text_mention(user_id=user.uid, text=user.fname) for user in users]
             )
             text = megacall_text + mentions
             client.send_message(chat_id=chat_id, text=text, parse_mode="html")

@@ -1,81 +1,87 @@
-
-from dataclasses import asdict
-from pyrogram import Client, Filters, Message
 from typing import List
+
 from pymongo.collection import Collection
+from pyrogram import Client, Filters, Message
 
 from bot import zzlib
 from bot.texts.texts import HelpTexts
+from bot.zzlib import SimplifiedUser
+
+from .calls_dao import Call, CallsDAO
 
 
 def load(bot_client: Client, db: Collection, bot_name: str, help_texts: HelpTexts):
-    
+
+    # loads its DAO
+    dao = CallsDAO(db)
+
     def _expand_commands(commands: List[str]) -> List[str]:
         return zzlib.expand_commands(commands=commands, bot_name=bot_name)
 
-    def get_admin_and_creator_ids(client: Client, chat_id: int, call_name: str) -> List[int]:
+    def get_admin_and_creator_ids(
+        client: Client, chat_id: int, call_name: str
+    ) -> List[int]:
         """
-        Devuelve lista con los ids de los administradores del canal/grupo y el creador de la call.
+        Devuelve lista con los ids de los administradores del canal/grupo
+        y el creador de la call.
 
         :param client:      Pyrogram Client
         :param chat_id:     Group ID
         :param call_name:   Call name
         :return:            List of user ids
         """
-        admins = client.get_chat_members(
-            chat_id=chat_id, filter="administrators")
-        query_result = db.calls.find_one(
-            {'name': call_name, 'group': chat_id}, {'owner': 1, '_id': 0})
-        admin_ids = [user.user.id for user in admins]
-        if query_result:
-            creator_id = query_result['owner']['uid']
-            admin_ids.append(creator_id)
-        return admin_ids
+        admins = client.get_chat_members(chat_id=chat_id, filter="administrators")
+        creator = dao.get_call_creator(chat_id, call_name)
 
+        admin_ids = [admin.user.id for admin in admins]
+        if creator:
+            admin_ids.append(creator.uid)
+        return admin_ids
 
     # list and details
     # ----------------
-    @bot_client.on_message(Filters.command(_expand_commands(["list", 'calls'])))
+    @bot_client.on_message(Filters.command(_expand_commands(["list", "calls"])))
     def lista(client: Client, message: Message):
-        group = message.chat.id
-        q = db.calls.find({'group': group}, {'name': 1, 'desc': 1, '_id': 0})
+        chat_id = message.chat.id
+        calls_list = dao.get_group_calls(chat_id)
         info = [
-            '''\n<b>{}</b>: "{}"'''.format(ele['name'], ele['desc']) for ele in q]
-        text = ''.join(info)
+            '''\n<b>{}</b>: "{}"'''.format(call.name, call.desc) for call in calls_list
+        ]
+        text = "".join(info)
 
         if text:
-            client.send_message(chat_id=group,
-                                text="Calls in this group:{}"
-                                    "\n/create to create a new call"
-                                    "\n/modify to edit description"
-                                    "\n/detail to show more info".format(text),
-                                parse_mode="html")
+            client.send_message(
+                chat_id=chat_id,
+                text="Calls in this group:{}"
+                "\n/create to create a new call"
+                "\n/modify to edit description"
+                "\n/detail to show more info".format(text),
+                parse_mode="html",
+            )
         else:
-            help_texts(client, group, "empty_calls")
-
+            help_texts(client, chat_id, "empty_calls")
 
     @bot_client.on_message(Filters.command(_expand_commands(["detail", "details"])))
     def detail(client: Client, message: Message):
-        group = message.chat.id
-        q = db.calls.find({'group': group}, {'name': 1,
-                                            'users': 1, 'owner': 1, '_id': 0})
+        chat_id = message.chat.id
+        calls_list = dao.get_group_calls(chat_id)
         info = list()
-        for element in q:
-            owner = ''.join('<a href="tg://user?id={}">{}</a>'.format(
-                element["owner"]["uid"], element["owner"]["fname"]))
-            if element["users"]:
-                users = ", ".join([user['fname'] for user in element['users']])
+        for call in calls_list:
+            owner = "".join(zzlib.text_mention(call.owner.uid, call.owner.fname))
+            if call.users:
+                users = ", ".join([user.fname for user in call.users])
             else:
                 users = "-Empty call-"
-            info.append(
-                "\n<b>{}</b> (owner {}): {}".format(element['name'], owner, users))
+            info.append(f"\n<b>{call.name}</b> (owner {owner}): {users}")
 
         if info:
-            client.send_message(chat_id=group, text="Calls in this group:{}".format(
-                ''.join(info)), parse_mode="html")
+            client.send_message(
+                chat_id=chat_id,
+                text=f'Calls in this group:{"".join(info)}',
+                parse_mode="html",
+            )
         else:
-            help_texts(client, group, "empty_calls")
-
+            help_texts(client, chat_id, "empty_calls")
 
     # create and modify
     # -----------------
@@ -89,26 +95,20 @@ def load(bot_client: Client, db: Collection, bot_name: str, help_texts: HelpText
             help_texts(client, chat_id, "create")
 
         elif len(params) >= 2:
-            q = db.calls.find_one({'group': chat_id,
-                                'name': params[1].lower()})
-            # print(q)
-            if not q:
-                if len(params) >= 3:
-                    prov = params[2:]
-                    desc = ' '.join(prov)
-                else:
-                    desc = "CALL: {}!".format(params[1].upper())
-                fields = {'group': chat_id,
-                        'name': params[1].lower(),
-                        'desc': desc,
-                        'owner': {'uid': message.from_user.id, 'fname': message.from_user.first_name},
-                        'users': list()}
-                # print(fields)
-                db.calls.insert_one(fields)
-                # print("created")
+            exists = dao.check_call_exists(chat_id=chat_id, call_name=params[1])
+            if not exists:
+                desc = " ".join(params[2:]) if len(params) >= 3 else None
+                call = Call(
+                    group=chat_id,
+                    name=params[1],
+                    desc=desc,
+                    owner=SimplifiedUser(
+                        uid=message.from_user.id, fname=message.from_user.first_name,
+                    ),
+                )
+                dao.create_call(call)
             else:
-                print("already created")
-
+                help_texts(client, chat_id, "already_created")
 
     @bot_client.on_message(Filters.command(_expand_commands(["modify"])))
     def modify(client: Client, message: Message):
@@ -116,18 +116,15 @@ def load(bot_client: Client, db: Collection, bot_name: str, help_texts: HelpText
         chat_id = message.chat.id
 
         if len(params) >= 3:
-            prov = params[2:]
-            desc = ' '.join(prov)
-            q = db.calls.find_one_and_update({'name': params[1].lower(), 'group': chat_id},
-                                            {'$set': {'desc': desc}})
-            if not q:
-                client.send_message(chat_id=chat_id, text="Specified call does not exist"
-                                                        "\n/create <name> <(desc)>")
-            else:
-                print("HOLA")
+            desc = " ".join(params[2:])
+            success = dao.modify_call_description(
+                chat_id=chat_id, name=params[1], desc=desc
+            )
+            if not success:
+                help_texts(client, chat_id, "call_no_exists")
+
         else:
-            client.send_message(chat_id=chat_id, text="Specify the name and description"
-                                                    "\n/modify <name> <desc>")
+            help_texts(client, chat_id, "modify")
 
     # delete call
     # -----------
@@ -135,24 +132,19 @@ def load(bot_client: Client, db: Collection, bot_name: str, help_texts: HelpText
     def delete(client: Client, message: Message):
         params = message.text.split()
         chat_id = message.chat.id
-        caller = message.from_user.id
+        caller_id = message.from_user.id
 
         if len(params) == 2:
             call_name = params[1].lower()
             admin_ids = get_admin_and_creator_ids(client, chat_id, call_name)
 
-            if caller in admin_ids:
-                try:
-                    db.calls.find_one_and_delete(
-                        {'name': call_name, 'group': chat_id})
-                except:
-                    print("Error")
+            if caller_id in admin_ids:
+                dao.delete_call(chat_id, call_name)
             else:
                 help_texts(client, chat_id, "delete")
 
         else:
             help_texts(client, chat_id, "delete")
-
 
     # join and leave calls (user himself)
     # -----------------------------------
@@ -163,22 +155,18 @@ def load(bot_client: Client, db: Collection, bot_name: str, help_texts: HelpText
 
         if len(params) == 2:
             call_name = params[1].lower()
-            fname = message.from_user.first_name
-            uid = message.from_user.id
-            user = {'uid': uid, 'fname': fname}
-            try:
-                # print(call_name, update.message.chat_id)
-                q = db.calls.find_one_and_update({'name': call_name, 'group': chat_id},
-                                                {"$addToSet": {'users': user}})
-                if not q:
-                    help_texts(client, chat_id, "join")
+            user = SimplifiedUser(
+                uid=message.from_user.id, fname=message.from_user.first_name,
+            )
 
-            except:
-                print("Nope")
+            result = dao.add_users_to_call(
+                chat_id=chat_id, name=call_name, users=[user]
+            )
+            if not result:
+                help_texts(client, chat_id, "join")
 
         else:
             help_texts(client, chat_id, "join")
-
 
     @bot_client.on_message(Filters.command(_expand_commands(["leave", "exit", "quit"])))
     def leave(client: Client, message: Message):
@@ -187,21 +175,12 @@ def load(bot_client: Client, db: Collection, bot_name: str, help_texts: HelpText
 
         if len(params) == 2:
             name = params[1].lower()
-            print("leave")
-            fname = message.from_user.first_name
-            uid = message.from_user.id
-            user = {'uid': uid, 'fname': fname}
-            try:
-                print(name, chat_id)
-                q = db.calls.find_one_and_update({'name': name, 'group': chat_id},
-                                                {"$pull": {'users': user}})
-                print(q)
-            except:
-                print("Nope")
-
+            user = SimplifiedUser(
+                uid=message.from_user.id, fname=message.from_user.first_name,
+            )
+            dao.remove_users_from_call(chat_id=chat_id, name=name, users_ids=[user.uid])
         else:
             help_texts(client, chat_id, "leave")
-
 
     # call - mention logic
     # --------------------
@@ -215,18 +194,16 @@ def load(bot_client: Client, db: Collection, bot_name: str, help_texts: HelpText
 
         elif len(params) >= 2:
             name = params[1].lower()
-            query = db.calls.find_one({'group': chat_id,
-                                    'name': name}, {'desc': 1, 'users': 1, '_id': 0})
-            if query:
-                mentions = ''.join(
-                    ['<a href="tg://user?id={}">{}</a> '.format(user["uid"], user["fname"]) for user in query['users']])
-                text = query['desc'] + "\n" + mentions
+            call = dao.get_call(chat_id, name)
+            if call:
+                mentions = " ".join(
+                    [zzlib.text_mention(user.uid, user.fname) for user in call.users]
+                )
+                text = call.desc + "\n" + mentions
                 client.send_message(message.chat.id, text, parse_mode="html")
 
             else:
                 help_texts(client, chat_id, "call")
-
-
 
     # add / kick other users
     # ----------------------
@@ -240,17 +217,13 @@ def load(bot_client: Client, db: Collection, bot_name: str, help_texts: HelpText
 
         elif len(params) > 2:
             call_name = params[1].lower()
-            users_mentioned = zzlib.extract_mentioned_users(client, message)
-            users_mentioned_dict = [asdict(user) for user in users_mentioned]
+            users, errors = zzlib.extract_mentioned_users(client, message)
 
-            try:
-                q = db.calls.find_one_and_update({'name': call_name, 'group': chat_id},
-                                                {"$addToSet": {"users": {"$each": users_mentioned_dict}}})
-                if not q:
-                    help_texts(client, chat_id, "add")
-            except:
-                print("Error")
-
+            result = dao.add_users_to_call(chat_id=chat_id, name=call_name, users=users)
+            if not result:
+                help_texts(client, chat_id, "add")
+            elif errors:
+                help_texts(client, chat_id, "add_users_errors")
 
     @bot_client.on_message(Filters.command(_expand_commands(["kick"])))
     def kick_user(client: Client, message: Message):
@@ -263,21 +236,14 @@ def load(bot_client: Client, db: Collection, bot_name: str, help_texts: HelpText
 
         else:
             call_name = params[1].lower()
-            users_mentioned = zzlib.extract_mentioned_users(client, message)
-            users_mentioned_ids = [user.uid for user in users_mentioned]
-            admin_and_creator_ids = get_admin_and_creator_ids(
-                client, chat_id, call_name)
-            print(users_mentioned_ids)
+            users, _ = zzlib.extract_mentioned_users(client, message)
+            users_ids = [user.uid for user in users]
+            admins_ids = get_admin_and_creator_ids(client, chat_id, call_name)
 
-            if caller in admin_and_creator_ids:
-                try:
-                    q = db.calls.find_one_and_update({'name': call_name, 'group': chat_id},
-                                                    {"$pull": {
-                                                        "users": {"uid": {"$in": users_mentioned_ids}}}},
-                                                    {"multi": True})
-                    print(q)
-                except:
-                    print("Error")
+            if caller in admins_ids:
+                dao.remove_users_from_call(
+                    chat_id=chat_id, name=call_name, users_ids=users_ids
+                )
             else:
                 help_texts(client, chat_id, "kick")
 

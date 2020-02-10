@@ -1,3 +1,3 @@
 No calls found in this group
-\n/create to create a new call
-\n/help to list more commands
+/create to create a new call
+/help to list more commands

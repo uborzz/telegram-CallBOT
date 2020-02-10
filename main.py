@@ -21,21 +21,32 @@ BOT_NAME = "uborzz_bot"
 DB_NAME = "calls_db"
 
 
-# init
-# ----
-print("Creating the scheduler...")
-scheduler = BackgroundScheduler()
-scheduler.start()
+def main():
 
-print("Connecting to the database...")
-db_client = MongoClient(MONGO_URI)
-db = db_client[DB_NAME]
+    print("Creating the scheduler...")
+    scheduler = BackgroundScheduler()
+    scheduler.start()
 
-print("Instantiating the Pyrogram client...")
-pyrogram_client = Client(session_name=SESSION_NAME, api_id=BOT_ID, api_hash=BOT_HASH)
+    print("Connecting to the database...")
+    db_client = MongoClient(MONGO_URI)
+    database = db_client[DB_NAME]
 
-print("Instantiating the bot...")
-bot = Bot(name=BOT_NAME, bot_client=pyrogram_client, database=db, scheduler=scheduler)
+    print("Instantiating the Pyrogram client...")
+    pyrogram_client = Client(
+        session_name=SESSION_NAME, api_id=BOT_ID, api_hash=BOT_HASH
+    )
 
-bot.load()
-bot.run()
+    print("Instantiating the bot...")
+    bot = Bot(
+        name=BOT_NAME,
+        bot_client=pyrogram_client,
+        database=database,
+        scheduler=scheduler,
+    )
+
+    bot.load_modules()
+    bot.run()
+
+
+if __name__ == "__main__":
+    main()

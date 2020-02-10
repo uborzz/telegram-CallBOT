@@ -14,7 +14,7 @@ class DoomedUser:
     ts_reset: datetime
 
     @property
-    def to_dict(self):
+    def asdict(self):
         return asdict(self)
 
 
@@ -27,10 +27,10 @@ class DoomDAO:
         return DoomedUser(**db_user) if db_user else None
 
     def doom(self, user: DoomedUser):
-        self.db.insert_one(user.to_dict)
+        self.db.insert_one(user.asdict)
 
     def undoom(self, user: DoomedUser):
-        self.db.delete_one(user.to_dict)
+        self.db.delete_one(user.asdict)
 
     def clear(self, time_now: datetime):
         self.db.delete_many({"ts_reset": {"$gt": time_now}})

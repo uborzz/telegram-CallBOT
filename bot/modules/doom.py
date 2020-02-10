@@ -51,7 +51,10 @@ def load(
             else:
                 doomed_user: DoomedUser = dao.find(uid=user.id, chat_id=chat_id)
                 if doomed_user:
-                    text = f'<a href="tg://user?id={doomed_user.uid}">{doomed_user.first_name}</a> ya ha sido maldito recientemente... dale un fucking break, ok?'
+                    text = (
+                        zzlib.text_mention(doomed_user.uid, doomed_user.first_name)
+                        + " ya ha sido maldito hace poco... dale un fucking break, ok?"
+                    )
                 else:
                     date_first_message = datetime.utcfromtimestamp(message.date)
                     doomed_user = DoomedUser(
@@ -63,7 +66,9 @@ def load(
                         ts_reset=date_first_message + timedelta(minutes=doom_cooldown),
                     )
                     dao.doom(doomed_user)
-                    text = f'<a href="tg://user?id={user.id}">{user.first_name}</a> is DOOMED now!'
+                    text = (
+                        f"{zzlib.text_mention(user.id, user.first_name)} is DOOMED now!"
+                    )
                 client.send_message(message.chat.id, text, parse_mode="html")
 
         else:

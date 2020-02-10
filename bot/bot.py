@@ -20,7 +20,7 @@ class Bot:
         self.scheduler = scheduler
         self.help_texts = HelpTexts()
 
-    def load(
+    def load_modules(
         self,
         module_megacall: bool = True,
         module_calls: bool = True,
