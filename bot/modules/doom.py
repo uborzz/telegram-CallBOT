@@ -11,6 +11,12 @@ from bot import zzlib
 from .doom_dao import DoomDAO, DoomedUser
 
 
+"""
+This module is a joke functionality. Using whitelist to keep it 'private'.
+Requires the bot to disable de privacy mode.
+"""
+
+
 def load(
     bot_client: Client,
     collection: Collection,
@@ -18,6 +24,7 @@ def load(
     scheduler: BackgroundScheduler,
     doom_duration: int = 10,
     doom_cooldown: int = 180,
+    whitelisted_chats: List[int] = [],
 ):
 
     # loads its DAO
@@ -35,7 +42,10 @@ def load(
     def _expand_commands(commands: List[str]) -> List[str]:
         return zzlib.expand_commands(commands=commands, bot_name=bot_name)
 
-    @bot_client.on_message(Filters.command(_expand_commands(["doom", "calla", "stfu"])))
+    @bot_client.on_message(
+        Filters.chat(whitelisted_chats)
+        & Filters.command(_expand_commands(["doom", "calla", "stfu"]))
+    )
     def calla(client: Client, message: Message):
         chat_id = message.chat.id
         command = message.command[0]
@@ -78,7 +88,7 @@ def load(
                 parse_mode="html",
             )
 
-    @bot_client.on_message(~Filters.bot)
+    @bot_client.on_message(Filters.chat(whitelisted_chats) & ~Filters.bot)
     def doom(_: Client, message: Message):
         time_now = datetime.utcnow()
         user = message.from_user

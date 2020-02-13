@@ -7,10 +7,21 @@ from bot import zzlib
 from bot.texts.texts import HelpTexts
 from bot.zzlib import SimplifiedUser
 
+from . import advanced_calls
 from .calls_dao import Call, CallsDAO
 
 
-def load(bot_client: Client, db: Collection, bot_name: str, help_texts: HelpTexts):
+def load(
+    bot_client: Client,
+    db: Collection,
+    bot_name: str,
+    user_name: str,
+    help_texts: HelpTexts,
+    user_client: Client = None,
+    voip=None,
+    advanced_options: bool = False,
+    whitelisted_chats: List[int] = [],
+):
 
     # loads its DAO
     dao = CallsDAO(db)
@@ -182,29 +193,6 @@ def load(bot_client: Client, db: Collection, bot_name: str, help_texts: HelpText
         else:
             help_texts(client, chat_id, "leave")
 
-    # call - mention logic
-    # --------------------
-    @bot_client.on_message(Filters.command(_expand_commands(["call"])))
-    def call(client: Client, message: Message):
-        params = message.text.split()
-        chat_id = message.chat.id
-
-        if len(params) == 1:
-            help_texts(client, chat_id, "call")
-
-        elif len(params) >= 2:
-            name = params[1].lower()
-            call = dao.get_call(chat_id, name)
-            if call:
-                mentions = " ".join(
-                    [zzlib.text_mention(user.uid, user.fname) for user in call.users]
-                )
-                text = call.desc + "\n" + mentions
-                client.send_message(message.chat.id, text, parse_mode="html")
-
-            else:
-                help_texts(client, chat_id, "call")
-
     # add / kick other users
     # ----------------------
     @bot_client.on_message(Filters.command(_expand_commands(["add"])))
@@ -247,4 +235,39 @@ def load(bot_client: Client, db: Collection, bot_name: str, help_texts: HelpText
             else:
                 help_texts(client, chat_id, "kick")
 
+    # call - mention logic
+    # --------------------
+    @bot_client.on_message(Filters.command(_expand_commands(["call"])))
+    def call(client: Client, message: Message):
+        params = message.text.split()
+        chat_id = message.chat.id
+
+        if len(params) == 1:
+            help_texts(client, chat_id, "call")
+
+        elif len(params) >= 2:
+            name = params[1].lower()
+            call = dao.get_call(chat_id, name)
+            if call:
+                mentions = " ".join(
+                    [zzlib.text_mention(user.uid, user.fname) for user in call.users]
+                )
+                text = call.desc + "\n" + mentions
+                client.send_message(message.chat.id, text, parse_mode="html")
+
+            else:
+                help_texts(client, chat_id, "call")
+
     print("Calls module loaded.")
+
+    if advanced_options:
+        advanced_calls.load(
+            bot_client=bot_client,
+            dao=dao,
+            bot_name=bot_name,
+            user_name=user_name,
+            help_texts=help_texts,
+            whitelisted_chats=whitelisted_chats,
+            user_client=user_client,
+            voip=voip,
+        )

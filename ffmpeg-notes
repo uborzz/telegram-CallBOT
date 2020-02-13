@@ -1,0 +1,9 @@
+m4a > mp3
+L ffmpeg -i audio.m4a -acodec libmp3lame -ab 256k audio.mp3
+W .\ffmpeg\bin\ffmpeg.exe -i audio.m4a -acodec libmp3lame -ab 256k audio.mp3
+
+bot - mp3 > raw
+L ffmpeg -i audio.mp3 -f s16le -ac 1 -ar 48000 -acodec pcm_s16le audio.raw  # encode
+W .\ffmpeg\bin\ffmpeg.exe -i audio.mp3 -f s16le -ac 1 -ar 48000 -acodec pcm_s16le audio.raw
+
+$ ffmpeg -f s16le -ac 1 -ar 48000 -acodec pcm_s16le -i output.raw output.mp3  # decode
