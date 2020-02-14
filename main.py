@@ -49,9 +49,11 @@ def main():
     print("Instantiating the bot...")
 
     # prov test group. TODO manage with database and admin commands.
-    whitelist = [
-        -341964353,
-    ]
+    whitelist = []
+    with open("whitelist", "r+") as f:
+        for line in f.readlines():
+            whitelist.append(int(line))
+
     bot = Bot(
         name=BOT_NAME,
         user_name=USER_NAME,
